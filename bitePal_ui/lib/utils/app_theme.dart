@@ -62,9 +62,6 @@ class AppTheme {
       surface: AppColors.surfaceLight,
       onSurface: AppColors.onSurfaceLight,
       surfaceContainerHighest: AppColors.surfaceContainerHighLight,
-      // 背景色
-      background: AppColors.backgroundLight,
-      onBackground: AppColors.onBackgroundLight,
       // 轮廓色
       outline: AppColors.outlineLight,
       outlineVariant: AppColors.outlineLight.withValues(alpha: 0.5),
@@ -211,9 +208,6 @@ class AppTheme {
       surface: AppColors.surfaceDark,
       onSurface: AppColors.onSurfaceDark,
       surfaceContainerHighest: AppColors.surfaceContainerHighDark,
-      // 背景色
-      background: AppColors.backgroundDark,
-      onBackground: AppColors.onBackgroundDark,
       // 轮廓色
       outline: AppColors.outlineDark,
       outlineVariant: AppColors.outlineDark.withValues(alpha: 0.5),
