@@ -24,6 +24,7 @@ func SetupRouter() *gin.Engine {
 		// 初始化处理器
 		authHandler := handlers.NewAuthHandler()
 		recipeHandler := handlers.NewRecipeHandler()
+		categoryHandler := handlers.NewCategoryHandler()
 		menuHandler := handlers.NewMenuHandler()
 		mealHandler := handlers.NewMealHandler()
 		ingredientHandler := handlers.NewIngredientHandler()
@@ -67,6 +68,17 @@ func SetupRouter() *gin.Engine {
 			recipes.POST("/:recipeId/favorite", recipeHandler.ToggleFavorite) // 收藏/取消收藏
 			recipes.POST("/:recipeId/add-to-my", recipeHandler.AddToMyRecipes) // 加入我的菜单
 			recipes.POST("/random", randomHandler.RandomRecipe)             // 随机推荐菜品
+		}
+
+		// 菜谱分类相关
+		categories := api.Group("/categories")
+		categories.Use(middleware.AuthMiddleware())
+		{
+			categories.GET("", categoryHandler.GetRecipeCategories)              // 获取分类列表
+			categories.GET("/:type", categoryHandler.GetRecipeCategoriesByType)  // 按类型获取分类
+			categories.POST("", categoryHandler.CreateRecipeCategory)            // 创建分类
+			categories.PUT("/:categoryId", categoryHandler.UpdateRecipeCategory) // 更新分类
+			categories.DELETE("/:categoryId", categoryHandler.DeleteRecipeCategory) // 删除分类
 		}
 
 		// 今日菜单相关

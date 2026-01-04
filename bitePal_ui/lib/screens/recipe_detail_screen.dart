@@ -48,6 +48,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   late List<Ingredient> _ingredients;
   late List<String> _steps;
 
+  /// 难度星级（1-5）
+  int _selectedDifficultyStars = 3;
+
   // 临时输入控制器
   final Map<int, TextEditingController> _ingredientNameControllers = {};
   final Map<int, TextEditingController> _ingredientAmountControllers = {};
@@ -97,7 +100,96 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     _ingredients = recipe.ingredients ?? [];
     _steps = recipe.steps ?? [];
     _isFavorite = recipe.favorite;
+    _selectedDifficultyStars = _difficultyToStars(recipe.difficulty);
     _initializeControllers();
+  }
+
+  /// 难度文本转换为星级
+  ///
+  /// 返回 1-5 的星级数值
+  int _difficultyToStars(String difficulty) {
+    switch (difficulty) {
+      case '入门':
+        return 1;
+      case '简单':
+        return 2;
+      case '中等':
+        return 3;
+      case '困难':
+        return 4;
+      case '专业':
+        return 5;
+      default:
+        return 3;
+    }
+  }
+
+  /// 星级转换为难度文本
+  ///
+  /// 返回对应的难度描述
+  String _starsToDifficulty(int stars) {
+    switch (stars) {
+      case 1:
+        return '入门';
+      case 2:
+        return '简单';
+      case 3:
+        return '中等';
+      case 4:
+        return '困难';
+      case 5:
+        return '专业';
+      default:
+        return '中等';
+    }
+  }
+
+  /// 构建可编辑的难度星级选择器
+  ///
+  /// 显示五颗空星，点击星星设置难度等级
+  Widget _buildEditableDifficultyStars() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(5, (index) {
+        final starValue = index + 1;
+        return GestureDetector(
+          onTap: () {
+            setState(() {
+              _selectedDifficultyStars = starValue;
+              _difficultyController.text = _starsToDifficulty(starValue);
+            });
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Icon(
+              starValue <= _selectedDifficultyStars
+                  ? Icons.star
+                  : Icons.star_border,
+              size: 24,
+              color: Colors.amber,
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  /// 构建难度星级展示（非编辑模式）
+  ///
+  /// 根据当前难度显示对应的星级
+  Widget _buildDisplayDifficultyStars() {
+    final stars = _difficultyToStars(_difficultyController.text);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(5, (index) {
+        final starValue = index + 1;
+        return Icon(
+          starValue <= stars ? Icons.star : Icons.star_border,
+          size: 14,
+          color: Colors.amber,
+        );
+      }),
+    );
   }
 
   /// 使用模拟数据初始化
@@ -116,6 +208,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       "鸡蛋打入碗中，加入少许盐，搅拌均匀备用。",
       "锅中倒油烧热，倒入蛋液炒散成块，盛出备用。",
     ];
+    _selectedDifficultyStars = 3;
     _initializeControllers();
   }
 
@@ -164,21 +257,26 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     setState(() {
       _isEditing = false;
       // 恢复原始数据
-      _nameController.text = "红烧肉";
-      _timeController.text = "45 分钟";
-      _difficultyController.text = "中等";
-      _tags = ["清淡", "老人适合", "营养丰富"];
-      _ingredients = [
-        Ingredient(name: "西红柿", amount: "2个", available: true),
-        Ingredient(name: "鸡蛋", amount: "3个", available: true),
-        Ingredient(name: "小葱", amount: "2根", available: false),
-      ];
-      _steps = [
-        "将西红柿洗净，切成均匀的橘瓣块。",
-        "鸡蛋打入碗中，加入少许盐，搅拌均匀备用。",
-        "锅中倒油烧热，倒入蛋液炒散成块，盛出备用。",
-      ];
-      _initializeControllers();
+      if (_recipe != null) {
+        _initializeData(_recipe!);
+      } else {
+        _nameController.text = "红烧肉";
+        _timeController.text = "45 分钟";
+        _difficultyController.text = "中等";
+        _tags = ["清淡", "老人适合", "营养丰富"];
+        _ingredients = [
+          Ingredient(name: "西红柿", amount: "2个", available: true),
+          Ingredient(name: "鸡蛋", amount: "3个", available: true),
+          Ingredient(name: "小葱", amount: "2根", available: false),
+        ];
+        _steps = [
+          "将西红柿洗净，切成均匀的橘瓣块。",
+          "鸡蛋打入碗中，加入少许盐，搅拌均匀备用。",
+          "锅中倒油烧热，倒入蛋液炒散成块，盛出备用。",
+        ];
+        _selectedDifficultyStars = 3;
+        _initializeControllers();
+      }
     });
   }
 
@@ -200,7 +298,10 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     );
 
     // 调用API保存
-    final result = await _recipeService.updateRecipe(widget.recipeId, updatedRecipe);
+    final result = await _recipeService.updateRecipe(
+      widget.recipeId,
+      updatedRecipe,
+    );
 
     if (result != null) {
       _recipe = result;
@@ -215,7 +316,10 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       setState(() => _isEditing = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('保存成功（本地）'), duration: Duration(seconds: 1)),
+          const SnackBar(
+            content: Text('保存成功（本地）'),
+            duration: Duration(seconds: 1),
+          ),
         );
       }
     }
@@ -224,7 +328,10 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   /// 切换收藏状态
   Future<void> _toggleFavorite() async {
     final newFavorite = !_isFavorite;
-    final success = await _recipeService.toggleFavorite(widget.recipeId, newFavorite);
+    final success = await _recipeService.toggleFavorite(
+      widget.recipeId,
+      newFavorite,
+    );
     if (success) {
       setState(() => _isFavorite = newFavorite);
     } else {
@@ -239,11 +346,17 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     if (mounted) {
       if (result != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已加入今日菜单'), duration: Duration(seconds: 1)),
+          const SnackBar(
+            content: Text('已加入今日菜单'),
+            duration: Duration(seconds: 1),
+          ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('加入失败，请重试'), duration: Duration(seconds: 1)),
+          const SnackBar(
+            content: Text('加入失败，请重试'),
+            duration: Duration(seconds: 1),
+          ),
         );
       }
     }
@@ -255,11 +368,17 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     if (mounted) {
       if (result != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已加入我的菜单'), duration: Duration(seconds: 1)),
+          const SnackBar(
+            content: Text('已加入我的菜单'),
+            duration: Duration(seconds: 1),
+          ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('加入失败，请重试'), duration: Duration(seconds: 1)),
+          const SnackBar(
+            content: Text('加入失败，请重试'),
+            duration: Duration(seconds: 1),
+          ),
         );
       }
     }
@@ -570,35 +689,23 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                       ),
                       const SizedBox(width: 4),
                       _isEditing
-                          ? SizedBox(
-                              width: 80,
-                              child: TextField(
-                                controller: _difficultyController,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Theme.of(context).colorScheme.onSurface
-                                      .withValues(alpha: 0.6),
-                                ),
-                                decoration: InputDecoration(
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
+                          ? _buildEditableDifficultyStars()
+                          : Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _difficultyController.text,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.6),
                                   ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  isDense: true,
                                 ),
-                              ),
-                            )
-                          : Text(
-                              _difficultyController.text,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withValues(alpha: 0.6),
-                              ),
+                                const SizedBox(width: 4),
+                                _buildDisplayDifficultyStars(),
+                              ],
                             ),
                     ],
                   ),

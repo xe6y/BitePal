@@ -110,4 +110,8 @@ class ApiConfig {
 
   /// 家庭成员
   static const String familyMembers = '/family/members';
+
+  // ==================== 菜谱分类接口 ====================
+  /// 菜谱分类列表
+  static const String recipeCategories = '/categories';
 }

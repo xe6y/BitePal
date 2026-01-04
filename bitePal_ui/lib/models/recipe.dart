@@ -71,8 +71,8 @@ class Recipe {
       categories: List<String>.from(json['categories'] ?? []),
       ingredients: json['ingredients'] != null
           ? (json['ingredients'] as List)
-              .map((e) => Ingredient.fromJson(e))
-              .toList()
+                .map((e) => Ingredient.fromJson(e))
+                .toList()
           : null,
       steps: json['steps'] != null ? List<String>.from(json['steps']) : null,
       userId: json['userId'],
@@ -144,11 +144,7 @@ class Ingredient {
   /// 是否可用
   final bool available;
 
-  Ingredient({
-    required this.name,
-    required this.amount,
-    this.available = true,
-  });
+  Ingredient({required this.name, required this.amount, this.available = true});
 
   /// 从JSON创建Ingredient实例
   factory Ingredient.fromJson(Map<String, dynamic> json) {
@@ -161,10 +157,6 @@ class Ingredient {
 
   /// 转换为JSON
   Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'amount': amount,
-      'available': available,
-    };
+    return {'name': name, 'amount': amount, 'available': available};
   }
 }

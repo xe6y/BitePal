@@ -151,20 +151,8 @@ class RecipeCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Icon(
-                        Icons.trending_up_rounded,
-                        size: 13,
-                        color: colorScheme.onSurface.withValues(alpha: 0.6),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        recipe.difficulty,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: colorScheme.onSurface.withValues(alpha: 0.7),
-                          inherit: false,
-                        ),
-                      ),
+                      // 星级难度显示
+                      _buildStarRating(_getDifficultyStars(recipe.difficulty)),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -264,6 +252,45 @@ class RecipeCard extends StatelessWidget {
         ),
       );
     }).toList();
+  }
+
+  /// 根据难度文字获取星级数值
+  double _getDifficultyStars(String difficulty) {
+    switch (difficulty) {
+      case '简单':
+        return 2.0;
+      case '中等':
+        return 3.0;
+      case '困难':
+        return 4.5;
+      default:
+        return 3.0;
+    }
+  }
+
+  /// 构建星级评分显示
+  Widget _buildStarRating(double rating) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(5, (index) {
+        final starValue = index + 1;
+        IconData icon;
+
+        if (rating >= starValue) {
+          icon = Icons.star;
+        } else if (rating >= starValue - 0.5) {
+          icon = Icons.star_half;
+        } else {
+          icon = Icons.star_border;
+        }
+
+        return Icon(
+          icon,
+          size: 13,
+          color: Colors.amber,
+        );
+      }),
+    );
   }
 
   Widget _buildPlaceholder() {
