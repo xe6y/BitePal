@@ -8,7 +8,7 @@ class MockDataService {
   static List<Recipe> getMealRecipes() {
     return [
       Recipe(
-        id: 1,
+        id: "1",
         name: "番茄炒蛋",
         time: "15分钟",
         difficulty: "简单",
@@ -18,7 +18,7 @@ class MockDataService {
         categories: ["酸", "甜"],
       ),
       Recipe(
-        id: 2,
+        id: "2",
         name: "麻婆豆腐",
         time: "45分钟",
         difficulty: "中等",
@@ -28,7 +28,7 @@ class MockDataService {
         categories: ["麻", "辣"],
       ),
       Recipe(
-        id: 3,
+        id: "3",
         name: "清蒸鲈鱼",
         image: "/images/image.png",
         time: "25分钟",
@@ -39,7 +39,7 @@ class MockDataService {
         categories: ["粤菜", "清淡"],
       ),
       Recipe(
-        id: 4,
+        id: "4",
         name: "红烧肉",
         image: "/images/image.png",
         time: "45分钟",
@@ -56,7 +56,7 @@ class MockDataService {
   static List<Recipe> getTodayRecipes() {
     return [
       Recipe(
-        id: 1,
+        id: "1",
         name: "番茄炒蛋",
         time: "15 分钟",
         difficulty: "简单",
@@ -66,7 +66,7 @@ class MockDataService {
         categories: ["家常菜", "酸甜"],
       ),
       Recipe(
-        id: 4,
+        id: "4",
         name: "红烧肉",
         time: "45 分钟",
         difficulty: "中等",
@@ -82,7 +82,7 @@ class MockDataService {
   static List<IngredientItem> getExpiringIngredients() {
     return [
       IngredientItem(
-        id: 1,
+        id: "1",
         name: "生菜",
         amount: "1颗",
         category: "fridge",
@@ -92,7 +92,7 @@ class MockDataService {
         urgent: true,
       ),
       IngredientItem(
-        id: 2,
+        id: "2",
         name: "培根",
         amount: "200g",
         category: "fridge",
@@ -102,7 +102,7 @@ class MockDataService {
         urgent: false,
       ),
       IngredientItem(
-        id: 3,
+        id: "3",
         name: "牛奶",
         amount: "500ml",
         category: "fridge",
@@ -114,4 +114,3 @@ class MockDataService {
     ];
   }
 }
-

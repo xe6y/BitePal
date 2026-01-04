@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import '../models/recipe.dart';
+import '../services/recipe_service.dart';
+import '../services/menu_service.dart';
 
+/// 菜谱详情页面
 class RecipeDetailScreen extends StatefulWidget {
-  final int recipeId;
-  final bool isFromMyRecipes; // 是否来自"我的菜谱"
+  /// 菜谱ID
+  final String recipeId;
+
+  /// 是否来自"我的菜谱"
+  final bool isFromMyRecipes;
 
   const RecipeDetailScreen({
     super.key,
@@ -16,7 +22,22 @@ class RecipeDetailScreen extends StatefulWidget {
 }
 
 class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
+  /// 菜谱服务
+  final RecipeService _recipeService = RecipeService();
+
+  /// 菜单服务
+  final MenuService _menuService = MenuService();
+
+  /// 菜谱数据
+  Recipe? _recipe;
+
+  /// 是否正在加载
+  bool _isLoading = true;
+
+  /// 是否收藏
   bool _isFavorite = false;
+
+  /// 是否编辑模式
   bool _isEditing = false;
 
   // 可编辑的数据
@@ -41,7 +62,46 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   @override
   void initState() {
     super.initState();
-    // 初始化数据
+    _loadRecipeDetail();
+  }
+
+  /// 加载菜谱详情
+  Future<void> _loadRecipeDetail() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final recipe = await _recipeService.getRecipeDetail(widget.recipeId);
+      if (recipe != null) {
+        _recipe = recipe;
+        _initializeData(recipe);
+      } else {
+        // 使用模拟数据
+        _initializeMockData();
+      }
+    } catch (e) {
+      debugPrint('加载菜谱详情失败: $e');
+      _initializeMockData();
+    }
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  /// 从菜谱数据初始化
+  void _initializeData(Recipe recipe) {
+    _nameController = TextEditingController(text: recipe.name);
+    _timeController = TextEditingController(text: recipe.time);
+    _difficultyController = TextEditingController(text: recipe.difficulty);
+    _tags = List.from(recipe.tags);
+    _ingredients = recipe.ingredients ?? [];
+    _steps = recipe.steps ?? [];
+    _isFavorite = recipe.favorite;
+    _initializeControllers();
+  }
+
+  /// 使用模拟数据初始化
+  void _initializeMockData() {
     _nameController = TextEditingController(text: "红烧肉");
     _timeController = TextEditingController(text: "45 分钟");
     _difficultyController = TextEditingController(text: "中等");
@@ -122,15 +182,87 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     });
   }
 
-  void _confirmEdit() {
-    // 保存数据
-    setState(() {
-      _isEditing = false;
-      // 这里可以添加保存到数据库或状态管理的逻辑
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('保存成功'), duration: Duration(seconds: 1)),
+  /// 确认编辑
+  Future<void> _confirmEdit() async {
+    // 构建更新后的菜谱
+    final updatedRecipe = Recipe(
+      id: widget.recipeId,
+      name: _nameController.text,
+      time: _timeController.text,
+      difficulty: _difficultyController.text,
+      tags: _tags,
+      tagColors: _recipe?.tagColors ?? [],
+      categories: _recipe?.categories ?? [],
+      ingredients: _ingredients,
+      steps: _steps,
+      favorite: _isFavorite,
+      isPublic: _recipe?.isPublic ?? false,
     );
+
+    // 调用API保存
+    final result = await _recipeService.updateRecipe(widget.recipeId, updatedRecipe);
+
+    if (result != null) {
+      _recipe = result;
+      setState(() => _isEditing = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('保存成功'), duration: Duration(seconds: 1)),
+        );
+      }
+    } else {
+      // 如果API失败，仍然保存本地状态
+      setState(() => _isEditing = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('保存成功（本地）'), duration: Duration(seconds: 1)),
+        );
+      }
+    }
+  }
+
+  /// 切换收藏状态
+  Future<void> _toggleFavorite() async {
+    final newFavorite = !_isFavorite;
+    final success = await _recipeService.toggleFavorite(widget.recipeId, newFavorite);
+    if (success) {
+      setState(() => _isFavorite = newFavorite);
+    } else {
+      // API失败时也更新本地状态
+      setState(() => _isFavorite = newFavorite);
+    }
+  }
+
+  /// 加入今日菜单
+  Future<void> _addToTodayMenu() async {
+    final result = await _menuService.addRecipeToMenu(widget.recipeId);
+    if (mounted) {
+      if (result != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已加入今日菜单'), duration: Duration(seconds: 1)),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('加入失败，请重试'), duration: Duration(seconds: 1)),
+        );
+      }
+    }
+  }
+
+  /// 加入我的菜单
+  Future<void> _addToMyRecipes() async {
+    final result = await _recipeService.addToMyRecipes(widget.recipeId);
+    if (mounted) {
+      if (result != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已加入我的菜单'), duration: Duration(seconds: 1)),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('加入失败，请重试'), duration: Duration(seconds: 1)),
+        );
+      }
+    }
   }
 
   void _addTag() {
@@ -284,6 +416,13 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -1079,11 +1218,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                     Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        onTap: () {
-                          setState(() {
-                            _isFavorite = !_isFavorite;
-                          });
-                        },
+                        onTap: _toggleFavorite,
                         borderRadius: BorderRadius.circular(12),
                         child: Container(
                           width: 48,
@@ -1127,9 +1262,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () {
-                            // 加入今日菜单
-                          },
+                          onPressed: _addToTodayMenu,
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
@@ -1143,7 +1276,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                       // 从"网络菜谱"进入：加入我的菜单和加入今日菜单
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: _enterEditMode,
+                          onPressed: _addToMyRecipes,
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
@@ -1156,9 +1289,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () {
-                            // 加入今日菜单
-                          },
+                          onPressed: _addToTodayMenu,
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
