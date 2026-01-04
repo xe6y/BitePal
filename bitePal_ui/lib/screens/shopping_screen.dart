@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import '../models/shopping_item.dart';
 import '../services/shopping_service.dart';
+import '../widgets/refreshable_screen.dart';
 import '../widgets/edit_item_dialog.dart';
 
 /// 购物清单页面
-class ShoppingScreen extends StatefulWidget {
+class ShoppingScreen extends RefreshableScreen {
   const ShoppingScreen({super.key});
 
   @override
   State<ShoppingScreen> createState() => _ShoppingScreenState();
 }
 
-class _ShoppingScreenState extends State<ShoppingScreen> {
+class _ShoppingScreenState extends State<ShoppingScreen> with RefreshableScreenState<ShoppingScreen> {
   /// 购物清单服务
   final ShoppingService _shoppingService = ShoppingService();
 
@@ -28,6 +29,11 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
   void initState() {
     super.initState();
     _loadShoppingList();
+  }
+
+  @override
+  Future<void> refresh() async {
+    await _loadShoppingList();
   }
 
   /// 加载购物清单

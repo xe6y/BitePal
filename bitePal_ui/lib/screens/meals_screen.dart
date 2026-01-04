@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import '../models/recipe.dart';
 import '../models/meal_order.dart';
+import '../models/today_menu.dart';
 import '../services/meal_service.dart';
+import '../services/menu_service.dart';
+import '../services/recipe_service.dart';
+import '../services/http_client.dart';
 import '../widgets/recipe_card.dart';
 import '../utils/app_constants.dart';
 import 'recipe_detail_screen.dart';
@@ -18,6 +22,12 @@ class _MealsScreenState extends State<MealsScreen> {
   /// 点餐服务
   final MealService _mealService = MealService();
 
+  /// 菜单服务
+  final MenuService _menuService = MenuService();
+
+  /// 菜谱服务
+  final RecipeService _recipeService = RecipeService();
+
   /// 是否展开筛选面板
   bool _filterExpanded = false;
 
@@ -27,11 +37,6 @@ class _MealsScreenState extends State<MealsScreen> {
   /// 选中的口味
   final List<String> _selectedTastes = [];
 
-  /// 选中的食材状态
-  final List<String> _selectedStatus = [];
-
-  /// 选中的餐点类型
-  final List<String> _selectedMealTypes = [];
 
   /// 选中的菜系
   final List<String> _selectedCuisines = [];
@@ -49,19 +54,66 @@ class _MealsScreenState extends State<MealsScreen> {
   }
 
   /// 加载菜谱数据
+  /// 只显示家庭菜单和收藏的菜谱
   Future<void> _loadRecipes() async {
     setState(() => _isLoading = true);
 
     try {
-      final result = await _mealService.getMealRecipes(
-        tastes: _selectedTastes.isNotEmpty ? _selectedTastes.join(',') : null,
-        cuisines: _selectedCuisines.isNotEmpty ? _selectedCuisines.join(',') : null,
-      );
-      if (result != null) {
-        _recipes = result.list;
-      } else {
-        _loadMockData();
+      // 并行获取今日菜单和收藏的菜谱
+      final results = await Future.wait([
+        _menuService.getTodayMenu(),
+        _recipeService.getMyRecipes(favorite: true),
+      ]);
+
+      final todayMenu = results[0] as TodayMenu?;
+      final favoriteRecipesResult = results[1] as PagedData<Recipe>?;
+
+      final List<Recipe> allRecipes = [];
+
+      // 添加今日菜单中的菜谱
+      if (todayMenu != null && todayMenu.recipes.isNotEmpty) {
+        final menuRecipeIds = todayMenu.recipes.map((r) => r.recipeId).toList();
+        for (final recipeId in menuRecipeIds) {
+          try {
+            final recipe = await _recipeService.getRecipeDetail(recipeId);
+            if (recipe != null) {
+              allRecipes.add(recipe);
+            }
+          } catch (e) {
+            debugPrint('加载菜单菜谱详情失败: $e');
+          }
+        }
       }
+
+      // 添加收藏的菜谱
+      if (favoriteRecipesResult != null && favoriteRecipesResult.list.isNotEmpty) {
+        allRecipes.addAll(favoriteRecipesResult.list);
+      }
+
+      // 根据筛选条件过滤
+      List<Recipe> filteredRecipes = allRecipes;
+
+      if (_selectedTastes.isNotEmpty) {
+        filteredRecipes = filteredRecipes.where((recipe) {
+          return _selectedTastes.any((taste) => recipe.categories.contains(taste));
+        }).toList();
+      }
+
+      if (_selectedCuisines.isNotEmpty) {
+        filteredRecipes = filteredRecipes.where((recipe) {
+          return _selectedCuisines.any((cuisine) => recipe.categories.contains(cuisine));
+        }).toList();
+      }
+
+      // 去重（根据 ID）
+      final Map<String, Recipe> uniqueRecipes = {};
+      for (final recipe in filteredRecipes) {
+        if (!uniqueRecipes.containsKey(recipe.id)) {
+          uniqueRecipes[recipe.id] = recipe;
+        }
+      }
+
+      _recipes = uniqueRecipes.values.toList();
     } catch (e) {
       debugPrint('加载菜谱失败: $e');
       _loadMockData();
@@ -383,7 +435,7 @@ class _MealsScreenState extends State<MealsScreen> {
           crossAxisCount: 2,
           crossAxisSpacing: AppConstants.spacingXL,
           mainAxisSpacing: AppConstants.spacingXL,
-          childAspectRatio: 0.75,
+          childAspectRatio: 0.65,
         ),
         itemCount: _recipes.length,
         itemBuilder: (context, index) {

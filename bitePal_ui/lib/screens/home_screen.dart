@@ -7,18 +7,19 @@ import '../services/ingredient_service.dart';
 import '../services/recipe_service.dart';
 import '../utils/app_theme.dart';
 import '../widgets/random_meal_dialog.dart';
+import '../widgets/refreshable_screen.dart';
 import 'recipe_detail_screen.dart';
 import 'profile_screen.dart';
 
 /// 首页
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends RefreshableScreen {
   const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin, RefreshableScreenState<HomeScreen> {
   /// 菜单服务
   final MenuService _menuService = MenuService();
 
@@ -57,6 +58,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   void dispose() {
     _animationController.dispose();
     super.dispose();
+  }
+
+  @override
+  Future<void> refresh() async {
+    await _loadData();
   }
 
   /// 加载数据

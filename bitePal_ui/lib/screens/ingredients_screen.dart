@@ -2,19 +2,20 @@ import 'package:flutter/material.dart';
 import '../models/ingredient_item.dart';
 import '../services/ingredient_service.dart';
 import '../config/api_config.dart';
+import '../widgets/refreshable_screen.dart';
 import 'ingredient_detail_screen.dart';
 import 'ingredient_edit_screen.dart';
 import 'ingredient_category_screen.dart';
 
 /// 食材库存页面
-class IngredientsScreen extends StatefulWidget {
+class IngredientsScreen extends RefreshableScreen {
   const IngredientsScreen({super.key});
 
   @override
   State<IngredientsScreen> createState() => _IngredientsScreenState();
 }
 
-class _IngredientsScreenState extends State<IngredientsScreen> {
+class _IngredientsScreenState extends State<IngredientsScreen> with RefreshableScreenState<IngredientsScreen> {
   /// 食材服务
   final IngredientService _ingredientService = IngredientService();
 
@@ -34,6 +35,11 @@ class _IngredientsScreenState extends State<IngredientsScreen> {
   void initState() {
     super.initState();
     _loadIngredients();
+  }
+
+  @override
+  Future<void> refresh() async {
+    await _loadIngredients();
   }
 
   /// 加载食材数据

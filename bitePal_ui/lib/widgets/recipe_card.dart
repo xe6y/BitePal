@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/recipe.dart';
-import '../utils/app_constants.dart';
+import '../utils/app_theme.dart';
 
 class RecipeCard extends StatelessWidget {
   final Recipe recipe;
@@ -25,38 +25,53 @@ class RecipeCard extends StatelessWidget {
 
     return Card(
       margin: EdgeInsets.zero,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: colorScheme.outline.withValues(alpha: 0.1),
+          width: 1,
+        ),
+      ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
+        borderRadius: BorderRadius.circular(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Image with favorite button
+            // 图片区域
             Stack(
               children: [
                 Container(
-                  height: AppConstants.cardImageHeight,
+                  height: 130,
                   width: double.infinity,
                   decoration: BoxDecoration(
                     color: colorScheme.surfaceContainerHighest,
                     borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(12),
+                      top: Radius.circular(16),
                     ),
                   ),
                   child: ClipRRect(
                     borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(12),
+                      top: Radius.circular(16),
                     ),
-                    child: Image.asset(
-                      'assets/chinese-potato-strips.jpg',
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          _buildPlaceholder(),
-                    ),
+                    child: recipe.image != null && recipe.image!.isNotEmpty
+                        ? Image.network(
+                            recipe.image!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                _buildPlaceholder(),
+                          )
+                        : Image.asset(
+                            'assets/chinese-potato-strips.jpg',
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                _buildPlaceholder(),
+                          ),
                   ),
                 ),
-                // Favorite button in top right corner
+                // 收藏按钮
                 if (onFavorite != null)
                   Positioned(
                     top: 8,
@@ -72,12 +87,12 @@ class RecipeCard extends StatelessWidget {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.9),
+                            color: Colors.white.withValues(alpha: 0.95),
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.1),
-                                blurRadius: 4,
+                                blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
                             ],
@@ -97,95 +112,75 @@ class RecipeCard extends StatelessWidget {
                   ),
               ],
             ),
-            // Info section
+            // 信息区域
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Recipe name
+                  // 菜名
                   Text(
                     recipe.name,
                     style: TextStyle(
                       fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       color: colorScheme.onSurface,
                       inherit: false,
+                      height: 1.2,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 8),
-                  // Time and difficulty
+                  // 时间和难度
                   Row(
                     children: [
                       Icon(
                         Icons.access_time_rounded,
-                        size: 14,
-                        color: colorScheme.onSurface.withValues(alpha: 0.5),
+                        size: 13,
+                        color: colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                       const SizedBox(width: 4),
                       Text(
                         recipe.time,
                         style: TextStyle(
-                          fontSize: 12,
-                          color: colorScheme.onSurface.withValues(alpha: 0.6),
+                          fontSize: 11,
+                          color: colorScheme.onSurface.withValues(alpha: 0.7),
                           inherit: false,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Icon(
                         Icons.trending_up_rounded,
-                        size: 14,
-                        color: colorScheme.onSurface.withValues(alpha: 0.5),
+                        size: 13,
+                        color: colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                       const SizedBox(width: 4),
                       Text(
                         recipe.difficulty,
                         style: TextStyle(
-                          fontSize: 12,
-                          color: colorScheme.onSurface.withValues(alpha: 0.6),
+                          fontSize: 11,
+                          color: colorScheme.onSurface.withValues(alpha: 0.7),
                           inherit: false,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  // Categories and add button
+                  // 标签和添加按钮
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
                         child: Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: recipe.categories.take(2).map((category) {
-                            return Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colorScheme.primaryContainer.withValues(
-                                  alpha: 0.3,
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                category,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: colorScheme.onPrimaryContainer,
-                                  fontWeight: FontWeight.w500,
-                                  inherit: false,
-                                ),
-                              ),
-                            );
-                          }).toList(),
+                          spacing: 5,
+                          runSpacing: 5,
+                          children: _buildTags(colorScheme),
                         ),
                       ),
                       if (onAdd != null) ...[
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Material(
                           color: Colors.transparent,
                           child: InkWell(
@@ -199,23 +194,23 @@ class RecipeCard extends StatelessWidget {
                               decoration: BoxDecoration(
                                 color: isAdded
                                     ? colorScheme.primary
-                                    : colorScheme.primaryContainer,
+                                    : colorScheme.error,
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: colorScheme.primary.withValues(
-                                      alpha: 0.2,
-                                    ),
-                                    blurRadius: 4,
+                                    color:
+                                        (isAdded
+                                                ? colorScheme.primary
+                                                : colorScheme.error)
+                                            .withValues(alpha: 0.3),
+                                    blurRadius: 6,
                                     offset: const Offset(0, 2),
                                   ),
                                 ],
                               ),
                               child: Icon(
                                 isAdded ? Icons.check : Icons.add,
-                                color: isAdded
-                                    ? colorScheme.onPrimary
-                                    : colorScheme.onPrimaryContainer,
+                                color: Colors.white,
                                 size: 18,
                               ),
                             ),
@@ -231,6 +226,44 @@ class RecipeCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// 构建标签列表
+  /// colorScheme: 颜色方案
+  /// 返回: 标签 Widget 列表
+  List<Widget> _buildTags(ColorScheme colorScheme) {
+    if (recipe.tags.isEmpty) {
+      return [];
+    }
+
+    return recipe.tags.asMap().entries.map((entry) {
+      final index = entry.key;
+      final tag = entry.value;
+      final tagColorClass = index < recipe.tagColors.length
+          ? recipe.tagColors[index]
+          : null;
+
+      // 解析标签颜色
+      final backgroundColor = TagColorUtils.parseColor(tagColorClass);
+      final textColor = TagColorUtils.getTextColor(backgroundColor);
+
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          tag,
+          style: TextStyle(
+            fontSize: 10,
+            color: textColor,
+            fontWeight: FontWeight.w600,
+            inherit: false,
+          ),
+        ),
+      );
+    }).toList();
   }
 
   Widget _buildPlaceholder() {

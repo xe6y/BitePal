@@ -2,17 +2,18 @@ import 'package:flutter/material.dart';
 import '../models/recipe.dart';
 import '../services/recipe_service.dart';
 import '../widgets/recipe_card.dart';
+import '../widgets/refreshable_screen.dart';
 import 'recipe_detail_screen.dart';
 
 /// 菜谱页面
-class RecipesScreen extends StatefulWidget {
+class RecipesScreen extends RefreshableScreen {
   const RecipesScreen({super.key});
 
   @override
   State<RecipesScreen> createState() => _RecipesScreenState();
 }
 
-class _RecipesScreenState extends State<RecipesScreen> {
+class _RecipesScreenState extends State<RecipesScreen> with RefreshableScreenState<RecipesScreen> {
   /// 菜谱服务
   final RecipeService _recipeService = RecipeService();
 
@@ -56,6 +57,11 @@ class _RecipesScreenState extends State<RecipesScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  @override
+  Future<void> refresh() async {
+    await _loadRecipes();
   }
 
   /// 加载菜谱数据

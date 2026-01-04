@@ -484,3 +484,108 @@ class AppTheme {
     );
   }
 }
+
+/// 标签颜色工具类
+/// 用于解析颜色字符串（支持 hex 格式和 Tailwind CSS 类名）
+class TagColorUtils {
+  /// Tailwind CSS 颜色映射表
+  static const Map<String, Color> _tailwindColorMap = {
+    // 绿色系
+    'bg-green-500': Color(0xFF10B981),
+    'bg-green-400': Color(0xFF34D399),
+    'bg-green-600': Color(0xFF059669),
+    'bg-green-300': Color(0xFF6EE7B7),
+    // 红色系
+    'bg-red-500': Color(0xFFEF4444),
+    'bg-red-400': Color(0xFFF87171),
+    'bg-red-600': Color(0xFFDC2626),
+    'bg-red-300': Color(0xFFFCA5A5),
+    // 蓝色系
+    'bg-blue-500': Color(0xFF3B82F6),
+    'bg-blue-400': Color(0xFF60A5FA),
+    'bg-blue-600': Color(0xFF2563EB),
+    'bg-blue-300': Color(0xFF93C5FD),
+    // 黄色/琥珀色系
+    'bg-amber-500': Color(0xFFF59E0B),
+    'bg-amber-400': Color(0xFFFBBF24),
+    'bg-amber-600': Color(0xFFD97706),
+    'bg-amber-300': Color(0xFFFCD34D),
+    'bg-yellow-500': Color(0xFFEAB308),
+    'bg-yellow-400': Color(0xFFFACC15),
+    'bg-yellow-600': Color(0xFFCA8A04),
+    // 紫色系
+    'bg-purple-500': Color(0xFFA855F7),
+    'bg-purple-400': Color(0xFFC084FC),
+    'bg-purple-600': Color(0xFF9333EA),
+    // 粉色系
+    'bg-pink-500': Color(0xFFEC4899),
+    'bg-pink-400': Color(0xFFF472B6),
+    'bg-pink-600': Color(0xFFDB2777),
+    // 橙色系
+    'bg-orange-500': Color(0xFFF97316),
+    'bg-orange-400': Color(0xFFFB923C),
+    'bg-orange-600': Color(0xFFEA580C),
+    // 青色系
+    'bg-cyan-500': Color(0xFF06B6D4),
+    'bg-cyan-400': Color(0xFF22D3EE),
+    'bg-cyan-600': Color(0xFF0891B2),
+    // 灰色系
+    'bg-gray-500': Color(0xFF6B7280),
+    'bg-gray-400': Color(0xFF9CA3AF),
+    'bg-gray-600': Color(0xFF4B5563),
+  };
+
+  /// 解析颜色字符串
+  /// 支持以下格式：
+  /// - hex 格式：#FF5722、#4CAF50
+  /// - Tailwind CSS 类名：bg-green-500、bg-red-500
+  /// colorStr: 颜色字符串
+  /// 返回: 对应的 Flutter Color，如果无法解析则返回默认灰色
+  static Color parseColor(String? colorStr) {
+    if (colorStr == null || colorStr.isEmpty) {
+      return Colors.grey.shade400;
+    }
+
+    // 尝试解析 hex 格式（如 #FF5722 或 FF5722）
+    if (colorStr.startsWith('#') || _isHexColor(colorStr)) {
+      try {
+        final hexStr = colorStr.replaceFirst('#', '');
+        // 处理 6 位和 8 位 hex 颜色
+        if (hexStr.length == 6) {
+          return Color(int.parse('0xFF$hexStr'));
+        } else if (hexStr.length == 8) {
+          return Color(int.parse('0x$hexStr'));
+        }
+      } catch (e) {
+        // 解析失败，继续尝试其他格式
+      }
+    }
+
+    // 尝试从 Tailwind 映射表查找
+    final tailwindColor = _tailwindColorMap[colorStr];
+    if (tailwindColor != null) {
+      return tailwindColor;
+    }
+
+    // 如果都找不到，返回默认灰色
+    return Colors.grey.shade400;
+  }
+
+  /// 判断字符串是否为有效的 hex 颜色（不带 # 前缀）
+  /// str: 待检测字符串
+  /// 返回: 是否为有效的 hex 颜色
+  static bool _isHexColor(String str) {
+    if (str.length != 6 && str.length != 8) return false;
+    return RegExp(r'^[0-9A-Fa-f]+$').hasMatch(str);
+  }
+
+  /// 根据颜色获取合适的文字颜色（白色或黑色）
+  /// backgroundColor: 背景颜色
+  /// 返回: 适合的文字颜色
+  static Color getTextColor(Color backgroundColor) {
+    // 计算亮度
+    final luminance = backgroundColor.computeLuminance();
+    // 如果亮度大于 0.5，使用黑色文字，否则使用白色文字
+    return luminance > 0.5 ? Colors.black87 : Colors.white;
+  }
+}

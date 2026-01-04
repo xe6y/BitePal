@@ -118,6 +118,15 @@ class _MainScreenState extends State<MainScreen> {
   /// 当前选中的页面索引
   int _currentIndex = 0;
 
+  /// 页面列表的 GlobalKey（用于访问页面状态）
+  final List<GlobalKey<State<StatefulWidget>>> _screenKeys = [
+    GlobalKey<State<StatefulWidget>>(),
+    GlobalKey<State<StatefulWidget>>(),
+    GlobalKey<State<StatefulWidget>>(),
+    GlobalKey<State<StatefulWidget>>(),
+    GlobalKey<State<StatefulWidget>>(),
+  ];
+
   /// 页面列表
   late final List<Widget> _screens;
 
@@ -125,12 +134,27 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _screens = [
-      const HomeScreen(),
-      const RecipesScreen(),
-      const MealsScreen(),
-      const IngredientsScreen(),
-      const ShoppingScreen(),
+      HomeScreen(key: _screenKeys[0]),
+      RecipesScreen(key: _screenKeys[1]),
+      MealsScreen(key: _screenKeys[2]),
+      IngredientsScreen(key: _screenKeys[3]),
+      ShoppingScreen(key: _screenKeys[4]),
     ];
+  }
+
+  /// 刷新指定索引的页面
+  void _refreshPage(int index) {
+    final state = _screenKeys[index].currentState;
+    if (state == null) return;
+
+    // 尝试调用刷新方法（如果页面实现了 RefreshableScreenState mixin）
+    try {
+      // 使用 dynamic 调用，如果方法不存在会抛出异常
+      (state as dynamic).refresh();
+    } catch (e) {
+      // 如果页面没有实现 refresh 方法，忽略错误
+      debugPrint('页面 $index 未实现 refresh 方法: $e');
+    }
   }
 
   @override
@@ -141,6 +165,11 @@ class _MainScreenState extends State<MainScreen> {
         currentIndex: _currentIndex,
         onTap: (index) {
           setState(() => _currentIndex = index);
+          
+          // 切换页面时刷新数据（延迟执行，确保页面已切换）
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _refreshPage(index);
+          });
         },
       ),
     );
