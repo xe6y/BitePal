@@ -471,6 +471,33 @@ func (h *ShoppingHandler) ShareShoppingList(c *gin.Context) {
 	}))
 }
 
+// GetShoppingListDetail 获取购物清单详情
+// @Summary 获取购物清单详情
+// @Description 获取指定购物清单的完整详情
+// @Tags 购物清单
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param listId path string true "清单ID"
+// @Success 200 {object} models.Response{data=models.ShoppingList}
+// @Failure 404 {object} models.Response
+// @Router /api/shopping-lists/{listId} [get]
+func (h *ShoppingHandler) GetShoppingListDetail(c *gin.Context) {
+	userID := middleware.GetUserIDFromContext(c)
+	listID := c.Param("listId")
+
+	var list models.ShoppingList
+	if result := config.DB.Where("id = ? AND user_id = ?", listID, userID).First(&list); result.Error != nil {
+		c.JSON(http.StatusNotFound, models.NewErrorResponse(
+			models.CodeNotFound,
+			"购物清单不存在",
+		))
+		return
+	}
+
+	c.JSON(http.StatusOK, models.NewSuccessResponseWithMessage("获取成功", list))
+}
+
 // GetShoppingHistory 获取购物订单历史
 // @Summary 获取购物订单历史
 // @Description 获取已完成的购物清单历史

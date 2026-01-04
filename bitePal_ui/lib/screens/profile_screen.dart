@@ -8,6 +8,9 @@ import 'meals_screen.dart';
 import 'ingredients_screen.dart';
 import 'shopping_screen.dart';
 import 'login_screen.dart';
+import 'order_history_screen.dart';
+import 'family_members_screen.dart';
+import 'app_settings_screen.dart';
 
 /// 个人中心页面
 class ProfileScreen extends StatefulWidget {
@@ -112,21 +115,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'icon': Icons.shopping_cart,
         'label': '购物订单历史',
         'onTap': () {
-          // 导航到购物历史
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const OrderHistoryScreen()),
+          );
         },
       },
       {
         'icon': Icons.people,
         'label': '家庭成员偏好',
         'onTap': () {
-          // 导航到家庭偏好
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const FamilyMembersScreen()),
+          );
         },
       },
       {
         'icon': Icons.settings,
         'label': 'App 设置',
         'onTap': () {
-          // 导航到设置
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AppSettingsScreen()),
+          );
         },
       },
     ];

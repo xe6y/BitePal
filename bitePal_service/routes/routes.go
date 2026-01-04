@@ -32,6 +32,7 @@ func SetupRouter() *gin.Engine {
 		statsHandler := handlers.NewStatsHandler()
 		preferenceHandler := handlers.NewPreferenceHandler()
 		uploadHandler := handlers.NewUploadHandler()
+		familyHandler := handlers.NewFamilyHandler()
 
 		// ==================== 认证接口（无需Token） ====================
 		auth := api.Group("/auth")
@@ -120,6 +121,7 @@ func SetupRouter() *gin.Engine {
 			shoppingLists.GET("", shoppingHandler.GetShoppingLists)                 // 获取购物清单列表
 			shoppingLists.GET("/current", shoppingHandler.GetCurrentShoppingList)   // 获取当前购物清单
 			shoppingLists.GET("/history", shoppingHandler.GetShoppingHistory)       // 获取购物订单历史
+			shoppingLists.GET("/:listId", shoppingHandler.GetShoppingListDetail)    // 获取购物清单详情
 			shoppingLists.POST("", shoppingHandler.CreateShoppingList)              // 创建购物清单
 			shoppingLists.PUT("/:listId", shoppingHandler.UpdateShoppingList)       // 更新购物清单
 			shoppingLists.POST("/:listId/items", shoppingHandler.AddShoppingItem)   // 添加购物项
@@ -134,6 +136,19 @@ func SetupRouter() *gin.Engine {
 		upload.Use(middleware.AuthMiddleware())
 		{
 			upload.POST("/image", uploadHandler.UploadImage) // 上传图片
+		}
+
+		// 家庭管理相关
+		family := api.Group("/family")
+		family.Use(middleware.AuthMiddleware())
+		{
+			family.GET("", familyHandler.GetMyFamily)                     // 获取我的家庭
+			family.POST("", familyHandler.CreateFamily)                   // 创建家庭
+			family.POST("/join", familyHandler.JoinFamily)                // 加入家庭
+			family.POST("/leave", familyHandler.LeaveFamily)              // 退出家庭
+			family.POST("/invite-code", familyHandler.RefreshInviteCode)  // 刷新邀请码
+			family.PUT("/members/:memberId", familyHandler.UpdateMember)  // 更新成员信息
+			family.DELETE("/members/:memberId", familyHandler.RemoveMember) // 移除成员
 		}
 	}
 

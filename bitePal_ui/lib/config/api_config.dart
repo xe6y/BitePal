@@ -94,4 +94,20 @@ class ApiConfig {
   // ==================== 文件上传接口 ====================
   /// 图片上传
   static const String uploadImage = '/upload/image';
+
+  // ==================== 家庭管理接口 ====================
+  /// 家庭信息
+  static const String family = '/family';
+
+  /// 加入家庭
+  static const String familyJoin = '/family/join';
+
+  /// 退出家庭
+  static const String familyLeave = '/family/leave';
+
+  /// 刷新邀请码
+  static const String familyInviteCode = '/family/invite-code';
+
+  /// 家庭成员
+  static const String familyMembers = '/family/members';
 }

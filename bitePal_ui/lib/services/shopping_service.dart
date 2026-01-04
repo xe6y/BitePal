@@ -211,6 +211,19 @@ class ShoppingService {
     return null;
   }
 
+  /// 获取购物清单详情
+  /// listId: 清单ID
+  /// 返回: 购物清单详情
+  Future<ShoppingList?> getShoppingListDetail(String listId) async {
+    final response = await _client.get('${ApiConfig.shoppingLists}/$listId');
+
+    if (response.isSuccess && response.data != null) {
+      return ShoppingList.fromJson(response.data);
+    }
+
+    return null;
+  }
+
   /// 获取购物订单历史
   /// page: 页码
   /// pageSize: 每页数量

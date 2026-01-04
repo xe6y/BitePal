@@ -57,6 +57,8 @@ func autoMigrate() error {
 		&MealOrder{},
 		&UserStats{},
 		&FamilyMember{},
+		&Family{},
+		&FamilyMemberInfo{},
 	)
 	if err != nil {
 		return err
