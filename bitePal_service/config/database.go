@@ -86,4 +86,3 @@ func initDefaultCategories() {
 func GetDB() *gorm.DB {
 	return DB
 }
-

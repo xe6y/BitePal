@@ -245,6 +245,7 @@ class _IngredientEditScreenState extends State<IngredientEditScreen> {
       initialDate: initialDate,
       firstDate: firstDate,
       lastDate: lastDate,
+      locale: const Locale('zh', 'CN'),
     );
 
     if (pickedDate != null) {

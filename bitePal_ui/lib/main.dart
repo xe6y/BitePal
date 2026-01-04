@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/home_screen.dart';
 import 'screens/recipes_screen.dart';
 import 'screens/meals_screen.dart';
@@ -33,6 +34,17 @@ class MyApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
+      // 本地化配置
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('zh', 'CN'), // 简体中文
+        Locale('en', 'US'), // 英文
+      ],
+      locale: const Locale('zh', 'CN'), // 默认使用中文
       home: const AuthWrapper(),
     );
   }

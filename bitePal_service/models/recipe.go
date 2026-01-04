@@ -52,22 +52,22 @@ func (r RecipeIngredients) Value() (driver.Value, error) {
 
 // Recipe 菜谱模型
 type Recipe struct {
-	ID          string            `json:"id" gorm:"primaryKey"`        // 菜谱ID
-	Name        string            `json:"name" gorm:"not null"`        // 菜谱名称
-	Image       string            `json:"image"`                       // 图片URL
-	Time        string            `json:"time"`                        // 制作时间
-	Difficulty  string            `json:"difficulty"`                  // 难度（简单/中等/困难）
-	Tags        StringArray       `json:"tags" gorm:"type:json"`       // 标签数组
-	TagColors   StringArray       `json:"tagColors" gorm:"type:json"`  // 标签颜色数组
-	Favorite    bool              `json:"favorite"`                    // 是否收藏
-	Categories  StringArray       `json:"categories" gorm:"type:json"` // 分类数组
+	ID          string            `json:"id" gorm:"primaryKey"`         // 菜谱ID
+	Name        string            `json:"name" gorm:"not null"`         // 菜谱名称
+	Image       string            `json:"image"`                        // 图片URL
+	Time        string            `json:"time"`                         // 制作时间
+	Difficulty  string            `json:"difficulty"`                   // 难度（简单/中等/困难）
+	Tags        StringArray       `json:"tags" gorm:"type:json"`        // 标签数组
+	TagColors   StringArray       `json:"tagColors" gorm:"type:json"`   // 标签颜色数组
+	Favorite    bool              `json:"favorite"`                     // 是否收藏
+	Categories  StringArray       `json:"categories" gorm:"type:json"`  // 分类数组
 	Ingredients RecipeIngredients `json:"ingredients" gorm:"type:json"` // 食材列表
-	Steps       StringArray       `json:"steps" gorm:"type:json"`      // 制作步骤
-	UserID      string            `json:"userId" gorm:"index"`         // 创建用户ID
-	IsPublic    bool              `json:"isPublic"`                    // 是否公开
-	CreatedAt   time.Time         `json:"createdAt"`                   // 创建时间
-	UpdatedAt   time.Time         `json:"updatedAt"`                   // 更新时间
-	DeletedAt   gorm.DeletedAt    `json:"-" gorm:"index"`              // 软删除时间
+	Steps       StringArray       `json:"steps" gorm:"type:json"`       // 制作步骤
+	UserID      string            `json:"userId" gorm:"index"`          // 创建用户ID
+	IsPublic    bool              `json:"isPublic"`                     // 是否公开
+	CreatedAt   time.Time         `json:"createdAt"`                    // 创建时间
+	UpdatedAt   time.Time         `json:"updatedAt"`                    // 更新时间
+	DeletedAt   gorm.DeletedAt    `json:"-" gorm:"index"`               // 软删除时间
 }
 
 // BeforeCreate 创建前钩子，自动生成ID
@@ -109,11 +109,11 @@ func (r *Recipe) ToListItem() *RecipeListItem {
 
 // UserFavorite 用户收藏关联表
 type UserFavorite struct {
-	ID        string         `json:"id" gorm:"primaryKey"`     // ID
-	UserID    string         `json:"userId" gorm:"index"`      // 用户ID
-	RecipeID  string         `json:"recipeId" gorm:"index"`    // 菜谱ID
-	CreatedAt time.Time      `json:"createdAt"`                // 创建时间
-	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`           // 软删除时间
+	ID        string         `json:"id" gorm:"primaryKey"`  // ID
+	UserID    string         `json:"userId" gorm:"index"`   // 用户ID
+	RecipeID  string         `json:"recipeId" gorm:"index"` // 菜谱ID
+	CreatedAt time.Time      `json:"createdAt"`             // 创建时间
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`        // 软删除时间
 }
 
 // BeforeCreate 创建前钩子，自动生成ID
@@ -123,4 +123,3 @@ func (uf *UserFavorite) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
-
