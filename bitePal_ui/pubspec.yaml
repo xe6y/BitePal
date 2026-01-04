@@ -41,6 +41,9 @@ dependencies:
   # 本地存储（用于Token等）
   shared_preferences: ^2.2.2
 
+  # 图片选择器（相册/相机）
+  image_picker: ^1.0.7
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

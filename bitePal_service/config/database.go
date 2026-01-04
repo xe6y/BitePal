@@ -46,10 +46,11 @@ func InitDB(cfg *Config) error {
 // 返回: 错误信息
 func autoMigrate() error {
 	// 导入models包中的所有模型进行迁移
-	return DB.AutoMigrate(
+	err := DB.AutoMigrate(
 		&User{},
 		&Recipe{},
 		&UserFavorite{},
+		&IngredientCategory{},
 		&IngredientItem{},
 		&ShoppingList{},
 		&TodayMenu{},
@@ -57,6 +58,27 @@ func autoMigrate() error {
 		&UserStats{},
 		&FamilyMember{},
 	)
+	if err != nil {
+		return err
+	}
+
+	// 初始化默认食材分类
+	initDefaultCategories()
+
+	return nil
+}
+
+// initDefaultCategories 初始化默认食材分类
+func initDefaultCategories() {
+	defaultCategories := GetDefaultCategories()
+	for _, cat := range defaultCategories {
+		// 检查是否已存在，不存在则创建
+		var existing IngredientCategory
+		if result := DB.Where("id = ?", cat.ID).First(&existing); result.Error != nil {
+			DB.Create(cat)
+			log.Printf("创建默认食材分类: %s", cat.Name)
+		}
+	}
 }
 
 // GetDB 获取数据库实例

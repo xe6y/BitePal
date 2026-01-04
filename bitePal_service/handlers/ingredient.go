@@ -22,11 +22,17 @@ func NewIngredientHandler() *IngredientHandler {
 
 // CreateIngredientRequest 创建食材请求结构
 type CreateIngredientRequest struct {
-	Name       string `json:"name" binding:"required"` // 食材名称
-	Amount     string `json:"amount"`                  // 数量
-	Category   string `json:"category"`                // 存储分类
-	Icon       string `json:"icon"`                    // 图标
-	ExpiryDate string `json:"expiryDate"`              // 过期日期
+	Name         string  `json:"name" binding:"required"` // 食材名称
+	Quantity     float64 `json:"quantity"`                // 数量数值
+	Unit         string  `json:"unit"`                    // 单位
+	Amount       string  `json:"amount"`                  // 数量描述（兼容旧版本）
+	Storage      string  `json:"storage"`                 // 存储位置
+	CategoryID   string  `json:"categoryId"`              // 食材类型分类ID
+	Thumbnail    string  `json:"thumbnail"`               // 缩略图URL
+	Icon         string  `json:"icon"`                    // 图标（兼容旧版本）
+	Note         string  `json:"note"`                    // 备注
+	ExpiryDate   string  `json:"expiryDate"`              // 过期日期
+	PurchaseDate string  `json:"purchaseDate"`            // 购买日期
 }
 
 // GetIngredients 获取食材列表
@@ -36,7 +42,8 @@ type CreateIngredientRequest struct {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param category query string false "分类筛选（room/fridge/freezer）"
+// @Param storage query string false "存储位置筛选（room/fridge/freezer）"
+// @Param categoryId query string false "分类ID筛选"
 // @Param urgent query bool false "是否只显示紧急"
 // @Param expiringDays query int false "过期天数筛选"
 // @Success 200 {object} models.Response{data=object}
@@ -45,11 +52,23 @@ func (h *IngredientHandler) GetIngredients(c *gin.Context) {
 	userID := middleware.GetUserIDFromContext(c)
 
 	// 构建查询
-	query := config.DB.Model(&models.IngredientItem{}).Where("user_id = ?", userID)
+	query := config.DB.Model(&models.IngredientItem{}).
+		Preload("Category").
+		Where("user_id = ?", userID)
+
+	// 存储位置筛选
+	if storage := c.Query("storage"); storage != "" {
+		query = query.Where("storage = ?", storage)
+	}
 
 	// 分类筛选
-	if category := c.Query("category"); category != "" {
-		query = query.Where("category = ?", category)
+	if categoryID := c.Query("categoryId"); categoryID != "" {
+		query = query.Where("category_id = ?", categoryID)
+	}
+
+	// 兼容旧版本的category参数（映射为storage）
+	if category := c.Query("category"); category != "" && c.Query("storage") == "" {
+		query = query.Where("storage = ?", category)
 	}
 
 	// 紧急筛选
@@ -65,7 +84,7 @@ func (h *IngredientHandler) GetIngredients(c *gin.Context) {
 		query = query.Where("expiry_date <= ?", targetDate)
 	}
 
-	// 获取列表
+	// 获取列表，默认按过期日期排序
 	var ingredients []models.IngredientItem
 	query.Order("expiry_date ASC").Find(&ingredients)
 
@@ -78,6 +97,102 @@ func (h *IngredientHandler) GetIngredients(c *gin.Context) {
 	c.JSON(http.StatusOK, models.NewSuccessResponseWithMessage("获取成功", gin.H{
 		"list":  list,
 		"total": len(list),
+	}))
+}
+
+// GetIngredientsGrouped 获取分组的食材列表
+// @Summary 获取分组的食材列表
+// @Description 获取按食材分类分组的库存列表
+// @Tags 食材管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param storage query string false "存储位置筛选（room/fridge/freezer）"
+// @Success 200 {object} models.Response{data=object}
+// @Router /api/ingredients/grouped [get]
+func (h *IngredientHandler) GetIngredientsGrouped(c *gin.Context) {
+	userID := middleware.GetUserIDFromContext(c)
+	storage := c.Query("storage")
+
+	// 获取所有可用分类
+	var categories []models.IngredientCategory
+	config.DB.Where("is_system = ? OR user_id = ?", true, userID).
+		Order("sort_order ASC").
+		Find(&categories)
+
+	// 为每个分类获取食材
+	groups := make([]*models.IngredientGroupResponse, 0)
+	for _, cat := range categories {
+		var ingredients []models.IngredientItem
+		query := config.DB.Model(&models.IngredientItem{}).
+			Preload("Category").
+			Where("user_id = ?", userID).
+			Where("category_id = ?", cat.ID)
+
+		// 存储位置筛选
+		if storage != "" {
+			query = query.Where("storage = ?", storage)
+		}
+
+		query.Order("expiry_date ASC").Find(&ingredients)
+
+		if len(ingredients) > 0 {
+			list := make([]*models.IngredientResponse, len(ingredients))
+			for i, item := range ingredients {
+				list[i] = item.ToResponse()
+			}
+
+			groups = append(groups, &models.IngredientGroupResponse{
+				Category:    cat.ToCategoryResp(),
+				Ingredients: list,
+				Count:       len(list),
+			})
+		}
+	}
+
+	// 获取未分类的食材
+	var uncategorized []models.IngredientItem
+	uncatQuery := config.DB.Model(&models.IngredientItem{}).
+		Preload("Category").
+		Where("user_id = ?", userID).
+		Where("category_id = '' OR category_id IS NULL")
+
+	// 应用存储位置筛选
+	if storage != "" {
+		uncatQuery = uncatQuery.Where("storage = ?", storage)
+	}
+
+	uncatQuery.Order("expiry_date ASC").Find(&uncategorized)
+
+	if len(uncategorized) > 0 {
+		list := make([]*models.IngredientResponse, len(uncategorized))
+		for i, item := range uncategorized {
+			list[i] = item.ToResponse()
+		}
+
+		groups = append(groups, &models.IngredientGroupResponse{
+			Category: &models.IngredientCategoryResp{
+				ID:        "uncategorized",
+				Name:      "未分类",
+				Icon:      "📦",
+				Color:     "#9E9E9E",
+				SortOrder: 100,
+				IsSystem:  true,
+			},
+			Ingredients: list,
+			Count:       len(list),
+		})
+	}
+
+	// 计算总数
+	totalCount := 0
+	for _, group := range groups {
+		totalCount += group.Count
+	}
+
+	c.JSON(http.StatusOK, models.NewSuccessResponseWithMessage("获取成功", gin.H{
+		"groups": groups,
+		"total":  totalCount,
 	}))
 }
 
@@ -102,7 +217,8 @@ func (h *IngredientHandler) GetExpiringIngredients(c *gin.Context) {
 
 	// 查询即将过期的食材
 	var ingredients []models.IngredientItem
-	config.DB.Where("user_id = ? AND expiry_date <= ?", userID, targetDate).
+	config.DB.Preload("Category").
+		Where("user_id = ? AND expiry_date <= ?", userID, targetDate).
 		Order("expiry_date ASC").
 		Find(&ingredients)
 
@@ -134,7 +250,9 @@ func (h *IngredientHandler) GetIngredientDetail(c *gin.Context) {
 	ingredientID := c.Param("ingredientId")
 
 	var ingredient models.IngredientItem
-	if result := config.DB.Where("id = ? AND user_id = ?", ingredientID, userID).First(&ingredient); result.Error != nil {
+	if result := config.DB.Preload("Category").
+		Where("id = ? AND user_id = ?", ingredientID, userID).
+		First(&ingredient); result.Error != nil {
 		c.JSON(http.StatusNotFound, models.NewErrorResponse(
 			models.CodeNotFound,
 			"食材不存在",
@@ -143,6 +261,46 @@ func (h *IngredientHandler) GetIngredientDetail(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, models.NewSuccessResponseWithMessage("获取成功", ingredient.ToResponse()))
+}
+
+// GetIngredientBatches 获取同名食材的所有批次
+// @Summary 获取同名食材的所有批次
+// @Description 获取指定名称食材的所有批次列表
+// @Tags 食材管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param name query string true "食材名称"
+// @Success 200 {object} models.Response{data=object}
+// @Router /api/ingredients/batches [get]
+func (h *IngredientHandler) GetIngredientBatches(c *gin.Context) {
+	userID := middleware.GetUserIDFromContext(c)
+	name := c.Query("name")
+
+	if name == "" {
+		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
+			models.CodeBadRequest,
+			"请提供食材名称",
+		))
+		return
+	}
+
+	var ingredients []models.IngredientItem
+	config.DB.Preload("Category").
+		Where("user_id = ? AND name = ?", userID, name).
+		Order("expiry_date ASC").
+		Find(&ingredients)
+
+	// 转换为响应结构
+	list := make([]*models.IngredientResponse, len(ingredients))
+	for i, item := range ingredients {
+		list[i] = item.ToResponse()
+	}
+
+	c.JSON(http.StatusOK, models.NewSuccessResponseWithMessage("获取成功", gin.H{
+		"list":  list,
+		"total": len(list),
+	}))
 }
 
 // CreateIngredient 添加食材
@@ -185,18 +343,56 @@ func (h *IngredientHandler) CreateIngredient(c *gin.Context) {
 		expiryDate = time.Now().AddDate(0, 0, 7)
 	}
 
-	// 默认分类
-	if req.Category == "" {
-		req.Category = models.CategoryFridge
+	// 解析购买日期
+	var purchaseDate time.Time
+	if req.PurchaseDate != "" {
+		var err error
+		purchaseDate, err = time.Parse("2006-01-02", req.PurchaseDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, models.NewErrorResponse(
+				models.CodeBadRequest,
+				"购买日期格式错误，应为：YYYY-MM-DD",
+			))
+			return
+		}
+	} else {
+		purchaseDate = time.Now()
+	}
+
+	// 默认存储位置
+	if req.Storage == "" {
+		req.Storage = models.StorageFridge
+	}
+
+	// 默认分类为"其他"
+	if req.CategoryID == "" {
+		req.CategoryID = "cat_other"
+	}
+
+	// 兼容旧版本的amount字段
+	amount := req.Amount
+	if amount == "" && req.Quantity > 0 && req.Unit != "" {
+		// 从数量和单位生成描述
+		if req.Quantity == float64(int(req.Quantity)) {
+			amount = strconv.Itoa(int(req.Quantity)) + req.Unit
+		} else {
+			amount = strconv.FormatFloat(req.Quantity, 'f', 2, 64) + req.Unit
+		}
 	}
 
 	ingredient := &models.IngredientItem{
-		Name:       req.Name,
-		Amount:     req.Amount,
-		Category:   req.Category,
-		Icon:       req.Icon,
-		ExpiryDate: expiryDate,
-		UserID:     userID,
+		Name:         req.Name,
+		Quantity:     req.Quantity,
+		Unit:         req.Unit,
+		Amount:       amount,
+		Storage:      req.Storage,
+		CategoryID:   req.CategoryID,
+		Thumbnail:    req.Thumbnail,
+		Icon:         req.Icon,
+		Note:         req.Note,
+		ExpiryDate:   expiryDate,
+		PurchaseDate: purchaseDate,
+		UserID:       userID,
 	}
 
 	if result := config.DB.Create(ingredient); result.Error != nil {
@@ -206,6 +402,9 @@ func (h *IngredientHandler) CreateIngredient(c *gin.Context) {
 		))
 		return
 	}
+
+	// 重新加载关联数据
+	config.DB.Preload("Category").First(ingredient, "id = ?", ingredient.ID)
 
 	c.JSON(http.StatusOK, models.NewSuccessResponseWithMessage("添加成功", ingredient.ToResponse()))
 }
@@ -249,14 +448,29 @@ func (h *IngredientHandler) UpdateIngredient(c *gin.Context) {
 	if req.Name != "" {
 		updates["name"] = req.Name
 	}
+	if req.Quantity > 0 {
+		updates["quantity"] = req.Quantity
+	}
+	if req.Unit != "" {
+		updates["unit"] = req.Unit
+	}
 	if req.Amount != "" {
 		updates["amount"] = req.Amount
 	}
-	if req.Category != "" {
-		updates["category"] = req.Category
+	if req.Storage != "" {
+		updates["storage"] = req.Storage
+	}
+	if req.CategoryID != "" {
+		updates["category_id"] = req.CategoryID
+	}
+	if req.Thumbnail != "" {
+		updates["thumbnail"] = req.Thumbnail
 	}
 	if req.Icon != "" {
 		updates["icon"] = req.Icon
+	}
+	if req.Note != "" {
+		updates["note"] = req.Note
 	}
 	if req.ExpiryDate != "" {
 		expiryDate, err := time.Parse("2006-01-02", req.ExpiryDate)
@@ -268,6 +482,17 @@ func (h *IngredientHandler) UpdateIngredient(c *gin.Context) {
 			return
 		}
 		updates["expiry_date"] = expiryDate
+	}
+	if req.PurchaseDate != "" {
+		purchaseDate, err := time.Parse("2006-01-02", req.PurchaseDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, models.NewErrorResponse(
+				models.CodeBadRequest,
+				"购买日期格式错误，应为：YYYY-MM-DD",
+			))
+			return
+		}
+		updates["purchase_date"] = purchaseDate
 	}
 
 	if len(updates) > 0 {
@@ -281,7 +506,7 @@ func (h *IngredientHandler) UpdateIngredient(c *gin.Context) {
 	}
 
 	// 重新获取食材信息
-	config.DB.First(&ingredient, "id = ?", ingredientID)
+	config.DB.Preload("Category").First(&ingredient, "id = ?", ingredientID)
 
 	c.JSON(http.StatusOK, models.NewSuccessResponseWithMessage("更新成功", ingredient.ToResponse()))
 }
@@ -320,4 +545,3 @@ func (h *IngredientHandler) DeleteIngredient(c *gin.Context) {
 
 	c.JSON(http.StatusOK, models.NewSuccessResponseWithMessage("删除成功", nil))
 }
-

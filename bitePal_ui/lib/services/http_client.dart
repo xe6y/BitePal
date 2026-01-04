@@ -194,6 +194,86 @@ class HttpClient {
       return ApiResponse(code: -1, message: '网络请求失败：$e', data: null);
     }
   }
+
+  /// 上传文件（multipart/form-data）
+  /// path: API路径
+  /// filePath: 文件路径
+  /// fieldName: 表单字段名
+  /// needAuth: 是否需要认证
+  /// 返回: API响应
+  Future<ApiResponse> uploadFile(
+    String path, {
+    required String filePath,
+    String fieldName = 'file',
+    bool needAuth = true,
+  }) async {
+    try {
+      final url = _buildUrl(path);
+      final token = needAuth ? await getToken() : null;
+
+      final request = http.MultipartRequest('POST', url);
+
+      // 添加认证头
+      if (token != null && token.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+
+      // 添加文件
+      request.files.add(await http.MultipartFile.fromPath(fieldName, filePath));
+
+      final streamedResponse = await request.send().timeout(
+        Duration(seconds: ApiConfig.connectTimeout * 2),
+      );
+      final response = await http.Response.fromStream(streamedResponse);
+
+      return _handleResponse(response);
+    } catch (e) {
+      return ApiResponse(code: -1, message: '文件上传失败：$e', data: null);
+    }
+  }
+
+  /// 上传文件字节数据
+  /// path: API路径
+  /// bytes: 文件字节数据
+  /// filename: 文件名
+  /// fieldName: 表单字段名
+  /// needAuth: 是否需要认证
+  /// 返回: API响应
+  Future<ApiResponse> uploadBytes(
+    String path, {
+    required List<int> bytes,
+    required String filename,
+    String fieldName = 'file',
+    bool needAuth = true,
+  }) async {
+    try {
+      final url = _buildUrl(path);
+      final token = needAuth ? await getToken() : null;
+
+      final request = http.MultipartRequest('POST', url);
+
+      // 添加认证头
+      if (token != null && token.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+
+      // 添加文件
+      request.files.add(http.MultipartFile.fromBytes(
+        fieldName,
+        bytes,
+        filename: filename,
+      ));
+
+      final streamedResponse = await request.send().timeout(
+        Duration(seconds: ApiConfig.connectTimeout * 2),
+      );
+      final response = await http.Response.fromStream(streamedResponse);
+
+      return _handleResponse(response);
+    } catch (e) {
+      return ApiResponse(code: -1, message: '文件上传失败：$e', data: null);
+    }
+  }
 }
 
 /// API响应结构

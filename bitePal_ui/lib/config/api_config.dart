@@ -64,12 +64,22 @@ class ApiConfig {
   /// 点餐订单
   static const String mealOrders = '/meals/orders';
 
+  // ==================== 食材分类接口 ====================
+  /// 食材分类列表
+  static const String ingredientCategories = '/ingredient-categories';
+
   // ==================== 食材接口 ====================
   /// 食材列表
   static const String ingredients = '/ingredients';
 
+  /// 分组食材列表
+  static const String ingredientsGrouped = '/ingredients/grouped';
+
   /// 即将过期食材
   static const String expiringIngredients = '/ingredients/expiring';
+
+  /// 同名食材批次
+  static const String ingredientBatches = '/ingredients/batches';
 
   // ==================== 购物清单接口 ====================
   /// 购物清单列表

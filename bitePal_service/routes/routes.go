@@ -87,16 +87,30 @@ func SetupRouter() *gin.Engine {
 			meals.POST("/orders/:orderId/confirm", mealHandler.ConfirmMealOrder) // 确认点餐
 		}
 
+		// 食材分类相关
+		ingredientCategoryHandler := handlers.NewIngredientCategoryHandler()
+		ingredientCategories := api.Group("/ingredient-categories")
+		ingredientCategories.Use(middleware.AuthMiddleware())
+		{
+			ingredientCategories.GET("", ingredientCategoryHandler.GetCategories)              // 获取分类列表
+			ingredientCategories.GET("/:categoryId", ingredientCategoryHandler.GetCategoryDetail) // 获取分类详情
+			ingredientCategories.POST("", ingredientCategoryHandler.CreateCategory)            // 创建分类
+			ingredientCategories.PUT("/:categoryId", ingredientCategoryHandler.UpdateCategory) // 更新分类
+			ingredientCategories.DELETE("/:categoryId", ingredientCategoryHandler.DeleteCategory) // 删除分类
+		}
+
 		// 食材库存相关
 		ingredients := api.Group("/ingredients")
 		ingredients.Use(middleware.AuthMiddleware())
 		{
-			ingredients.GET("", ingredientHandler.GetIngredients)               // 获取食材列表
-			ingredients.GET("/expiring", ingredientHandler.GetExpiringIngredients) // 获取即将过期食材
-			ingredients.GET("/:ingredientId", ingredientHandler.GetIngredientDetail) // 获取食材详情
-			ingredients.POST("", ingredientHandler.CreateIngredient)            // 添加食材
-			ingredients.PUT("/:ingredientId", ingredientHandler.UpdateIngredient) // 更新食材
-			ingredients.DELETE("/:ingredientId", ingredientHandler.DeleteIngredient) // 删除食材
+			ingredients.GET("", ingredientHandler.GetIngredients)                     // 获取食材列表
+			ingredients.GET("/grouped", ingredientHandler.GetIngredientsGrouped)      // 获取分组食材列表
+			ingredients.GET("/expiring", ingredientHandler.GetExpiringIngredients)    // 获取即将过期食材
+			ingredients.GET("/batches", ingredientHandler.GetIngredientBatches)       // 获取同名食材批次
+			ingredients.GET("/:ingredientId", ingredientHandler.GetIngredientDetail)  // 获取食材详情
+			ingredients.POST("", ingredientHandler.CreateIngredient)                  // 添加食材
+			ingredients.PUT("/:ingredientId", ingredientHandler.UpdateIngredient)     // 更新食材
+			ingredients.DELETE("/:ingredientId", ingredientHandler.DeleteIngredient)  // 删除食材
 		}
 
 		// 购物清单相关
