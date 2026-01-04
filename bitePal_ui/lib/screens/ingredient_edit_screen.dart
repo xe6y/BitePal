@@ -595,7 +595,7 @@ class _IngredientEditScreenState extends State<IngredientEditScreen> {
             Expanded(
               flex: 2,
               child: DropdownButtonFormField<String>(
-                value: _commonUnits.contains(_unitController.text)
+                initialValue: _commonUnits.contains(_unitController.text)
                     ? _unitController.text
                     : null,
                 decoration: const InputDecoration(

@@ -1,5 +1,6 @@
 /// API配置文件
 /// 包含后端服务器地址等配置信息
+library;
 
 class ApiConfig {
   /// 开发环境API地址
