@@ -473,9 +473,22 @@ class _RecipesScreenState extends State<RecipesScreen>
       ),
       floatingActionButton: FloatingActionButton(
         heroTag: "recipes_fab",
-        onPressed: () {
-          // 添加菜谱
+        onPressed: () async {
+          // 跳转到创建菜谱页面
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const RecipeDetailScreen(
+                isCreateMode: true,
+              ),
+            ),
+          );
+          // 如果创建成功，刷新列表
+          if (result == true) {
+            _loadRecipes();
+          }
         },
+        shape: const CircleBorder(),
         child: const Icon(Icons.add),
       ),
     );
@@ -917,8 +930,8 @@ class _RecipesScreenState extends State<RecipesScreen>
           final recipe = _currentRecipes[index];
           return RecipeCard(
             recipe: recipe,
-            onTap: () {
-              Navigator.push(
+            onTap: () async {
+              final result = await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => RecipeDetailScreen(
@@ -927,6 +940,10 @@ class _RecipesScreenState extends State<RecipesScreen>
                   ),
                 ),
               );
+              // 如果返回值为 true，刷新列表
+              if (result == true) {
+                _loadRecipes();
+              }
             },
             onFavorite: () => _toggleFavorite(recipe),
           );

@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -10,6 +12,16 @@ import 'screens/login_screen.dart';
 import 'screens/splash_screen.dart';
 import 'widgets/bottom_nav.dart';
 import 'utils/app_theme.dart';
+
+/// 自定义滚动行为，支持 Web 平台鼠标拖拽滚动
+class CustomScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+  };
+}
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,6 +46,8 @@ class MyApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
+      // Web 平台支持鼠标拖拽滚动
+      scrollBehavior: CustomScrollBehavior(),
       // 本地化配置
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,

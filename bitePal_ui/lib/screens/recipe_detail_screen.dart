@@ -4,19 +4,24 @@ import '../models/recipe_category.dart';
 import '../services/recipe_service.dart';
 import '../services/menu_service.dart';
 import '../services/category_service.dart';
+import '../services/today_menu_state.dart';
 
 /// 菜谱详情页面
 class RecipeDetailScreen extends StatefulWidget {
-  /// 菜谱ID
-  final String recipeId;
+  /// 菜谱ID（创建模式时可为空）
+  final String? recipeId;
 
   /// 是否来自"我的菜谱"
   final bool isFromMyRecipes;
 
+  /// 是否为创建新菜谱模式
+  final bool isCreateMode;
+
   const RecipeDetailScreen({
     super.key,
-    required this.recipeId,
+    this.recipeId,
     this.isFromMyRecipes = false,
+    this.isCreateMode = false,
   });
 
   @override
@@ -42,6 +47,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   /// 分类服务
   final CategoryService _categoryService = CategoryService();
 
+  /// 今日菜单状态管理器
+  final TodayMenuState _todayMenuState = TodayMenuState();
+
   /// 菜谱数据
   Recipe? _recipe;
 
@@ -53,6 +61,15 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
   /// 是否编辑模式
   bool _isEditing = false;
+
+  /// 是否是"添加到我的菜谱"的编辑模式
+  bool _isAddToMyRecipesMode = false;
+
+  /// 是否已点（在已点菜品中）
+  bool _isInSelectedMeals = false;
+
+  /// 是否正在处理操作
+  bool _isProcessing = false;
 
   // 可编辑的数据
   late TextEditingController _nameController;
@@ -82,15 +99,58 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     super.initState();
     _difficultyController = TextEditingController();
     _loadDifficultyOptions();
-    _loadRecipeDetail();
+
+    // 根据模式初始化
+    if (widget.isCreateMode) {
+      _initializeCreateMode();
+    } else {
+      _loadRecipeDetail();
+      _initSelectedMealsState();
+      _todayMenuState.addListener(_onSelectedMealsStateChanged);
+    }
+  }
+
+  /// 初始化创建模式
+  void _initializeCreateMode() {
+    _nameController = TextEditingController(text: '');
+    _timeController = TextEditingController(text: '');
+    _difficultyController.text = '';
+    _tags = [];
+    _ingredients = [];
+    _steps = [];
+    _isEditing = true;
+    _isLoading = false;
+  }
+
+  /// 初始化已点菜品状态
+  void _initSelectedMealsState() {
+    if (mounted && widget.recipeId != null) {
+      setState(() {
+        _isInSelectedMeals = _todayMenuState.isSelected(widget.recipeId!);
+      });
+    }
+  }
+
+  /// 已点菜品状态变化回调
+  void _onSelectedMealsStateChanged() {
+    if (mounted && widget.recipeId != null) {
+      setState(() {
+        _isInSelectedMeals = _todayMenuState.isSelected(widget.recipeId!);
+      });
+    }
   }
 
   /// 加载菜谱详情
   Future<void> _loadRecipeDetail() async {
+    if (widget.recipeId == null) {
+      _initializeMockData();
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
-      final recipe = await _recipeService.getRecipeDetail(widget.recipeId);
+      final recipe = await _recipeService.getRecipeDetail(widget.recipeId!);
       if (recipe != null) {
         _recipe = recipe;
         _initializeData(recipe);
@@ -134,80 +194,61 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
           _difficultyController.text = value;
         });
       },
-      offset: const Offset(0, 44),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      offset: const Offset(0, 28),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       color: Theme.of(context).cardColor,
-      elevation: 8,
+      elevation: 4,
+      constraints: const BoxConstraints(minWidth: 100, maxWidth: 140),
       itemBuilder: (context) {
         return _difficultyNames().map((option) {
           final isSelected = option == currentDifficulty;
           return PopupMenuItem<String>(
             value: option,
-            padding: EdgeInsets.zero,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? _getDifficultyColor(option)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: _getDifficultyColor(option),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.08),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
+            height: 32,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: _getDifficultyColor(option),
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      option,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: isSelected
-                            ? FontWeight.w700
-                            : FontWeight.w600,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  option,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
-                  if (isSelected)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 6),
-                      child: Icon(
-                        Icons.check,
-                        size: 16,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
+                ),
+                if (isSelected) ...[
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.check,
+                    size: 12,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 ],
-              ),
+              ],
             ),
           );
         }).toList();
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: _getDifficultyColor(currentDifficulty),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(8),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
@@ -217,15 +258,15 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
             Text(
               currentDifficulty,
               style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 4),
             const Icon(
               Icons.keyboard_arrow_down,
-              size: 18,
+              size: 14,
               color: Colors.black54,
             ),
           ],
@@ -243,15 +284,15 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       _difficultyController.text = currentDifficulty;
     }
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: _getDifficultyColor(currentDifficulty),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         currentDifficulty,
         style: TextStyle(
-          fontSize: 14,
+          fontSize: 12,
           fontWeight: FontWeight.w600,
           color: Theme.of(context).colorScheme.onSurface,
         ),
@@ -360,6 +401,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
   @override
   void dispose() {
+    _todayMenuState.removeListener(_onSelectedMealsStateChanged);
     _nameController.dispose();
     _timeController.dispose();
     _difficultyController.dispose();
@@ -386,36 +428,37 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   }
 
   void _cancelEdit() {
+    // 创建模式下取消直接返回上一页
+    if (widget.isCreateMode) {
+      Navigator.of(context).pop();
+      return;
+    }
+
     setState(() {
       _isEditing = false;
       // 恢复原始数据
       if (_recipe != null) {
         _initializeData(_recipe!);
-      } else {
-        _nameController.text = "红烧肉";
-        _timeController.text = "45 分钟";
-        _difficultyController.text = "中等";
-        _tags = ["清淡", "老人适合", "营养丰富"];
-        _ingredients = [
-          Ingredient(name: "西红柿", amount: "2个", available: true),
-          Ingredient(name: "鸡蛋", amount: "3个", available: true),
-          Ingredient(name: "小葱", amount: "2根", available: false),
-        ];
-        _steps = [
-          "将西红柿洗净，切成均匀的橘瓣块。",
-          "鸡蛋打入碗中，加入少许盐，搅拌均匀备用。",
-          "锅中倒油烧热，倒入蛋液炒散成块，盛出备用。",
-        ];
-        _initializeControllers();
       }
     });
   }
 
   /// 确认编辑
   Future<void> _confirmEdit() async {
-    // 构建更新后的菜谱
-    final updatedRecipe = Recipe(
-      id: widget.recipeId,
+    // 验证必填字段
+    if (_nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('请输入菜谱名称'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+      return;
+    }
+
+    // 构建菜谱数据
+    final recipeData = Recipe(
+      id: widget.isCreateMode ? '' : (widget.recipeId ?? ''),
       name: _nameController.text,
       time: _timeController.text,
       difficulty: _difficultyController.text,
@@ -428,39 +471,76 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       isPublic: _recipe?.isPublic ?? false,
     );
 
-    // 调用API保存
-    final result = await _recipeService.updateRecipe(
-      widget.recipeId,
-      updatedRecipe,
-    );
+    // 根据模式调用不同的 API
+    if (widget.isCreateMode) {
+      // 创建新菜谱
+      final result = await _recipeService.createRecipe(recipeData);
 
-    if (result != null) {
-      _recipe = result;
-      setState(() => _isEditing = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('保存成功'), duration: Duration(seconds: 1)),
-        );
+      if (result != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('菜谱创建成功'),
+              duration: Duration(seconds: 1),
+            ),
+          );
+          // 返回上一页并通知刷新
+          Navigator.of(context).pop(true);
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('创建失败，请重试'),
+              duration: Duration(seconds: 1),
+            ),
+          );
+        }
       }
     } else {
-      // 如果API失败，仍然保存本地状态
-      setState(() => _isEditing = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('保存成功（本地）'),
-            duration: Duration(seconds: 1),
-          ),
-        );
+      // 更新现有菜谱
+      final result = await _recipeService.updateRecipe(
+        widget.recipeId!,
+        recipeData,
+      );
+
+      if (result != null) {
+        _recipe = result;
+        setState(() => _isEditing = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('保存成功'),
+              duration: Duration(seconds: 1),
+            ),
+          );
+        }
+      } else {
+        // 如果API失败，仍然保存本地状态
+        setState(() => _isEditing = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('保存成功（本地）'),
+              duration: Duration(seconds: 1),
+            ),
+          );
+        }
       }
     }
   }
 
   /// 切换收藏状态
   Future<void> _toggleFavorite() async {
+    // 创建模式下只更新本地状态
+    if (widget.isCreateMode || widget.recipeId == null) {
+      setState(() => _isFavorite = !_isFavorite);
+      return;
+    }
+
     final newFavorite = !_isFavorite;
     final success = await _recipeService.toggleFavorite(
-      widget.recipeId,
+      widget.recipeId!,
       newFavorite,
     );
     if (success) {
@@ -471,18 +551,82 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     }
   }
 
-  /// 加入今日菜单
-  Future<void> _addToTodayMenu() async {
-    final result = await _menuService.addRecipeToMenu(widget.recipeId);
-    if (mounted) {
-      if (result != null) {
+  /// 切换已点菜品状态（加入/移除）
+  void _toggleSelectedMeals() {
+    if (_isProcessing || _recipe == null) return;
+
+    setState(() => _isProcessing = true);
+
+    try {
+      final isNowSelected = _todayMenuState.toggleSelected(_recipe!);
+
+      if (mounted) {
+        setState(() {
+          _isInSelectedMeals = isNowSelected;
+          _isProcessing = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isNowSelected ? '已加入已点菜品' : '已从已点菜品移除'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isProcessing = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('已加入今日菜单'),
+            content: Text('操作失败，请重试'),
             duration: Duration(seconds: 1),
           ),
         );
-      } else {
+      }
+    }
+  }
+
+  /// 进入"加入我的菜谱"编辑模式
+  void _enterAddToMyRecipesMode() {
+    setState(() {
+      _isEditing = true;
+      _isAddToMyRecipesMode = true;
+    });
+  }
+
+  /// 确认添加到我的菜谱
+  Future<void> _confirmAddToMyRecipes() async {
+    // 构建新菜谱数据
+    final newRecipe = Recipe(
+      id: '', // 新菜谱ID由后端生成
+      name: _nameController.text,
+      time: _timeController.text,
+      difficulty: _difficultyController.text,
+      tags: _tags,
+      tagColors: _recipe?.tagColors ?? [],
+      categories: _recipe?.categories ?? [],
+      ingredients: _ingredients,
+      steps: _steps,
+      favorite: _isFavorite,
+      isPublic: false, // 我的菜谱默认私有
+    );
+
+    // 调用API创建菜谱
+    final result = await _recipeService.createRecipe(newRecipe);
+
+    if (result != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('已加入我的菜谱'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+        // 返回上一页
+        Navigator.of(context).pop(true);
+      }
+    } else {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('加入失败，请重试'),
@@ -493,24 +637,86 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     }
   }
 
-  /// 加入我的菜单
-  Future<void> _addToMyRecipes() async {
-    final result = await _recipeService.addToMyRecipes(widget.recipeId);
-    if (mounted) {
-      if (result != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('已加入我的菜单'),
-            duration: Duration(seconds: 1),
+  /// 取消添加到我的菜谱
+  void _cancelAddToMyRecipes() {
+    setState(() {
+      _isEditing = false;
+      _isAddToMyRecipesMode = false;
+      // 恢复原始数据
+      if (_recipe != null) {
+        _initializeData(_recipe!);
+      }
+    });
+  }
+
+  /// 显示删除确认对话框
+  void _showDeleteConfirmDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除菜谱'),
+        content: Text('确定要删除"${_nameController.text}"吗？此操作无法撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
           ),
-        );
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _deleteRecipe();
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 删除菜谱
+  Future<void> _deleteRecipe() async {
+    if (_isProcessing || widget.recipeId == null) return;
+
+    setState(() => _isProcessing = true);
+
+    try {
+      final success = await _recipeService.deleteRecipe(widget.recipeId!);
+
+      if (success) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('菜谱已删除'),
+              duration: Duration(seconds: 1),
+            ),
+          );
+          // 返回上一页并通知刷新
+          Navigator.of(context).pop(true);
+        }
       } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('删除失败，请重试'),
+              duration: Duration(seconds: 1),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('删除菜谱失败: $e');
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('加入失败，请重试'),
+            content: Text('删除失败，请重试'),
             duration: Duration(seconds: 1),
           ),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
       }
     }
   }
@@ -555,30 +761,21 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         clipBehavior: Clip.none,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (index != null)
-                  const Icon(
-                    Icons.drag_indicator,
-                    size: 16,
-                    color: Colors.grey,
-                  ),
-                if (index != null) const SizedBox(width: 4),
-                Text(tag, style: const TextStyle(fontWeight: FontWeight.w600)),
-              ],
+            child: Text(
+              tag,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
           ),
           if (canDelete && index != null)
@@ -619,31 +816,33 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
   Widget _buildNewTagInput() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      width: 170,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      width: 140,
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.add_circle_outline, size: 16, color: Colors.grey),
-          const SizedBox(width: 8),
+          const Icon(Icons.add, size: 14, color: Colors.grey),
+          const SizedBox(width: 6),
           Expanded(
             child: TextField(
               controller: _newTagController,
+              style: const TextStyle(fontSize: 13),
               decoration: const InputDecoration(
                 hintText: '新标签',
                 border: InputBorder.none,
                 isDense: true,
+                contentPadding: EdgeInsets.zero,
               ),
               onSubmitted: (_) => _addTag(),
             ),
@@ -724,29 +923,19 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   }
 
   Widget _buildIngredientEditableBody(int index) {
-    final ingredient = _ingredients[index];
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.drag_indicator, size: 16, color: Colors.grey),
-        const SizedBox(width: 6),
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(
-            color: ingredient.available ? Colors.green : Colors.red,
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(width: 8),
         SizedBox(
-          width: 140,
+          width: 70,
           child: TextField(
             controller: _ingredientNameControllers[index],
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             decoration: const InputDecoration(
-              hintText: '食材名称',
+              hintText: '食材',
               border: InputBorder.none,
               isDense: true,
+              contentPadding: EdgeInsets.zero,
             ),
             onChanged: (value) {
               setState(() {
@@ -759,15 +948,17 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
             },
           ),
         ),
-        const SizedBox(width: 8),
+        const Text(' · ', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
         SizedBox(
-          width: 90,
+          width: 50,
           child: TextField(
             controller: _ingredientAmountControllers[index],
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             decoration: const InputDecoration(
               hintText: '用量',
               border: InputBorder.none,
               isDense: true,
+              contentPadding: EdgeInsets.zero,
             ),
             onChanged: (value) {
               setState(() {
@@ -778,7 +969,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                 );
               });
             },
-            onSubmitted: (_) => _addIngredient(),
           ),
         ),
       ],
@@ -787,38 +977,24 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
   Widget _buildIngredientDisplayChip(Ingredient ingredient) {
     return _buildIngredientChipShell(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              color: ingredient.available ? Colors.green : Colors.red,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '${ingredient.name} · ${ingredient.amount}',
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-        ],
+      child: Text(
+        '${ingredient.name} · ${ingredient.amount}',
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
       ),
     );
   }
 
   Widget _buildIngredientChipShell({required Widget child}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -831,38 +1007,42 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.add_circle_outline, size: 18),
-          const SizedBox(width: 8),
           SizedBox(
-            width: 120,
+            width: 70,
             child: TextField(
               controller: _newIngredientNameController,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
               decoration: const InputDecoration(
-                hintText: '食材名称',
+                hintText: '食材',
                 border: InputBorder.none,
                 isDense: true,
+                contentPadding: EdgeInsets.zero,
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const Text(' · ', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
           SizedBox(
-            width: 80,
+            width: 50,
             child: TextField(
               controller: _newIngredientAmountController,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
               decoration: const InputDecoration(
                 hintText: '用量',
                 border: InputBorder.none,
                 isDense: true,
+                contentPadding: EdgeInsets.zero,
               ),
               onSubmitted: (_) => _addIngredient(),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.check_circle, size: 18),
-            onPressed: _addIngredient,
-            color: Theme.of(context).colorScheme.primary,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: _addIngredient,
+            child: Icon(
+              Icons.check_circle,
+              size: 14,
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
         ],
       ),
@@ -932,11 +1112,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Icon(Icons.drag_indicator, size: 16, color: Colors.grey),
-        const SizedBox(width: 6),
         Container(
-          width: 32,
-          height: 32,
+          width: 24,
+          height: 24,
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             shape: BoxShape.circle,
@@ -945,6 +1123,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
             child: Text(
               '${index + 1}',
               style: TextStyle(
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: Theme.of(
                   context,
@@ -955,14 +1134,20 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         ),
         const SizedBox(width: 8),
         ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 220),
+          constraints: const BoxConstraints(maxWidth: 200),
           child: TextField(
             controller: _stepControllers[index],
             maxLines: null,
+            style: TextStyle(
+              fontSize: 13,
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+              height: 1.5,
+            ),
             decoration: const InputDecoration(
               hintText: '步骤描述',
               border: InputBorder.none,
               isDense: true,
+              contentPadding: EdgeInsets.zero,
             ),
             onChanged: (value) {
               setState(() {
@@ -982,8 +1167,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 32,
-            height: 32,
+            width: 24,
+            height: 24,
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
               shape: BoxShape.circle,
@@ -992,6 +1177,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               child: Text(
                 '${index + 1}',
                 style: TextStyle(
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: Theme.of(
                     context,
@@ -1000,12 +1186,13 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 220),
+            constraints: const BoxConstraints(maxWidth: 200),
             child: Text(
               step,
               style: TextStyle(
+                fontSize: 13,
                 color: Theme.of(
                   context,
                 ).colorScheme.onSurface.withValues(alpha: 0.7),
@@ -1020,15 +1207,15 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
   Widget _buildStepChipShell({required Widget child}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -1043,8 +1230,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 32,
-            height: 32,
+            width: 24,
+            height: 24,
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
               shape: BoxShape.circle,
@@ -1053,6 +1240,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               child: Text(
                 '${_steps.length + 1}',
                 style: TextStyle(
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: Theme.of(
                     context,
@@ -1061,26 +1249,34 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 220),
+            constraints: const BoxConstraints(maxWidth: 200),
             child: TextField(
               controller: _newStepController,
-              maxLines: 3,
+              maxLines: null,
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                height: 1.5,
+              ),
               decoration: const InputDecoration(
                 hintText: '输入新步骤...',
                 border: InputBorder.none,
                 isDense: true,
+                contentPadding: EdgeInsets.zero,
               ),
               onSubmitted: (_) => _addStep(),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.check_circle, size: 18),
-            onPressed: _addStep,
-            color: Theme.of(context).colorScheme.primary,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: _addStep,
+            child: Icon(
+              Icons.check_circle,
+              size: 14,
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
         ],
       ),
@@ -1256,363 +1452,342 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     }
 
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          // Header Image
-          SliverAppBar(
-            expandedHeight: 256,
-            pinned: true,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.asset(
-                    'assets/chinese-potato-strips.jpg',
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHighest,
-                    ),
-                  ),
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.3),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            leading: IconButton(
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  shape: BoxShape.circle,
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) {
+              switch (value) {
+                case 'share':
+                  break;
+                case 'delete':
+                  _showDeleteConfirmDialog();
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem<String>(
+                value: 'share',
+                child: Row(
+                  children: [
+                    Icon(Icons.share, size: 20),
+                    SizedBox(width: 12),
+                    Text('分享'),
+                  ],
                 ),
-                child: const Icon(Icons.arrow_back, color: Colors.black),
               ),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            actions: [
-              IconButton(
-                icon: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    shape: BoxShape.circle,
+              if (!widget.isCreateMode)
+                const PopupMenuItem<String>(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, size: 20, color: Colors.red),
+                      SizedBox(width: 12),
+                      Text('删除菜谱', style: TextStyle(color: Colors.red)),
+                    ],
                   ),
-                  child: const Icon(Icons.share, color: Colors.black),
                 ),
-                onPressed: () {
-                  // Share
-                },
-              ),
             ],
           ),
-          // Content
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 菜品名称
-                  _isEditing
-                      ? TextField(
-                          controller: _nameController,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
+        ],
+      ),
+      body: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          // 顶部图片
+          Container(
+            height: 200,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            ),
+            child: ClipRRect(
+              child: Image.asset(
+                'assets/chinese-potato-strips.jpg',
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  child: Center(
+                    child: Icon(
+                      Icons.restaurant_rounded,
+                      size: 48,
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // 内容区域
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 菜品名称
+                _isEditing
+                    ? TextField(
+                        controller: _nameController,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          decoration: InputDecoration(
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                          ),
-                        )
-                      : Text(
-                          _nameController.text,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
                           ),
                         ),
-                  const SizedBox(height: 12),
-                  // 时间和难度
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.access_time,
-                        size: 16,
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withValues(alpha: 0.6),
+                      )
+                    : Text(
+                        _nameController.text,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                      const SizedBox(width: 4),
-                      _isEditing
-                          ? Container(
-                              width: 130,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).cardColor,
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.06),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: TextField(
-                                controller: _timeController,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Theme.of(context).colorScheme.onSurface
-                                      .withValues(alpha: 0.8),
+                const SizedBox(height: 8),
+                // 时间和难度
+                Row(
+                  children: [
+                    Icon(
+                      Icons.access_time,
+                      size: 14,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                    const SizedBox(width: 4),
+                    _isEditing
+                        ? Container(
+                            width: 80,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).cardColor,
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.04),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
                                 ),
-                                decoration: const InputDecoration(
-                                  hintText: '烹饪时间',
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                ),
-                              ),
-                            )
-                          : Text(
-                              _timeController.text,
+                              ],
+                            ),
+                            child: TextField(
+                              controller: _timeController,
                               style: TextStyle(
-                                fontSize: 14,
+                                fontSize: 12,
                                 color: Theme.of(
                                   context,
-                                ).colorScheme.onSurface.withValues(alpha: 0.6),
+                                ).colorScheme.onSurface.withValues(alpha: 0.8),
+                              ),
+                              decoration: const InputDecoration(
+                                hintText: '时长',
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
                               ),
                             ),
-                      const SizedBox(width: 16),
-                      Icon(
-                        Icons.local_fire_department,
-                        size: 16,
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withValues(alpha: 0.6),
-                      ),
-                      const SizedBox(width: 4),
-                      _isEditing
-                          ? _buildDifficultyDropdown()
-                          : _buildDifficultyLabel(),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        "家庭偏好标签",
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                          )
+                        : Text(
+                            _timeController.text,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withValues(alpha: 0.6),
+                            ),
+                          ),
+                    const SizedBox(width: 12),
+                    Icon(
+                      Icons.local_fire_department,
+                      size: 14,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                    const SizedBox(width: 4),
+                    _isEditing ? _buildDifficultyDropdown() : _buildDifficultyLabel(),
+                  ],
+                ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "家庭偏好标签",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              if (_isEditing)
+                TextButton.icon(
+                  onPressed: _addTag,
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('添加', style: TextStyle(fontSize: 13)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _isEditing
+              ? Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ..._tags.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final tag = entry.value;
+                      final isHovered = _hoveredTagIndices.contains(index);
+                      return LongPressDraggable<int>(
+                        key: ValueKey('tag_$index'),
+                        data: index,
+                        feedback: Material(
+                          color: Colors.transparent,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).cardColor,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.1),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              tag,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                      if (_isEditing)
-                        IconButton(
-                          icon: const Icon(Icons.add_circle_outline, size: 20),
-                          onPressed: _addTag,
-                          tooltip: '添加标签',
+                        childWhenDragging: Opacity(
+                          opacity: 0.3,
+                          child: _buildTagChip(
+                            tag: tag,
+                            isHovered: isHovered,
+                            index: index,
+                          ),
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _isEditing
-                      ? Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: [
-                            ..._tags.asMap().entries.map((entry) {
-                              final index = entry.key;
-                              final tag = entry.value;
-                              final isHovered = _hoveredTagIndices.contains(
-                                index,
-                              );
-                              return LongPressDraggable<int>(
-                                key: ValueKey('tag_$index'),
-                                data: index,
-                                feedback: Material(
-                                  color: Colors.transparent,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(context).cardColor,
-                                      borderRadius: BorderRadius.circular(16),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(
-                                            alpha: 0.1,
-                                          ),
-                                          blurRadius: 10,
-                                          offset: const Offset(0, 4),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(
-                                          Icons.drag_indicator,
-                                          size: 16,
-                                          color: Colors.grey,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          tag,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                childWhenDragging: Opacity(
-                                  opacity: 0.3,
-                                  child: _buildTagChip(
-                                    tag: tag,
-                                    isHovered: isHovered,
-                                    index: index,
-                                  ),
-                                ),
-                                child: DragTarget<int>(
-                                  onAcceptWithDetails: (details) {
-                                    final fromIndex = details.data;
-                                    if (fromIndex != index) {
-                                      _reorderTag(fromIndex, index);
-                                    }
-                                  },
-                                  builder:
-                                      (context, candidateData, rejectedData) {
-                                        return _buildTagChip(
-                                          tag: tag,
-                                          isHovered: isHovered,
-                                          index: index,
-                                        );
-                                      },
-                                ),
-                              );
-                            }),
-                            _buildNewTagInput(),
-                          ],
-                        )
-                      : Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: _tags.map((tag) {
+                        child: DragTarget<int>(
+                          onAcceptWithDetails: (details) {
+                            final fromIndex = details.data;
+                            if (fromIndex != index) {
+                              _reorderTag(fromIndex, index);
+                            }
+                          },
+                          builder: (context, candidateData, rejectedData) {
                             return _buildTagChip(
                               tag: tag,
-                              isHovered: false,
-                              index: null,
-                              canDelete: false,
+                              isHovered: isHovered,
+                              index: index,
                             );
-                          }).toList(),
+                          },
                         ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        "食材清单",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (_isEditing)
-                        TextButton.icon(
-                          onPressed: _addIngredient,
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('添加食材'),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _isEditing
-                      ? Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: [
-                            ..._ingredients.asMap().entries.map(
-                              (entry) =>
-                                  _buildEditableIngredientChip(entry.key),
-                            ),
-                            _buildNewIngredientChip(),
-                          ],
-                        )
-                      : Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: _ingredients.map((ingredient) {
-                            return _buildIngredientDisplayChip(ingredient);
-                          }).toList(),
-                        ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        "步骤",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (_isEditing)
-                        TextButton.icon(
-                          onPressed: _addStep,
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('添加步骤'),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _isEditing
-                      ? Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: [
-                            ..._steps.asMap().entries.map(
-                              (entry) => _buildEditableStepChip(entry.key),
-                            ),
-                            _buildNewStepChip(),
-                          ],
-                        )
-                      : Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: _steps.asMap().entries.map((entry) {
-                            return _buildStepDisplayChip(
-                              entry.key,
-                              entry.value,
-                            );
-                          }).toList(),
-                        ),
-                  const SizedBox(height: 100), // Space for bottom actions
-                ],
+                      );
+                    }),
+                    _buildNewTagInput(),
+                  ],
+                )
+              : Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: _tags.map((tag) {
+                    return _buildTagChip(
+                      tag: tag,
+                      isHovered: false,
+                      index: null,
+                      canDelete: false,
+                    );
+                  }).toList(),
+                ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "食材清单",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
+              if (_isEditing)
+                TextButton.icon(
+                  onPressed: _addIngredient,
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('添加', style: TextStyle(fontSize: 13)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _isEditing
+              ? Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ..._ingredients.asMap().entries.map(
+                      (entry) => _buildEditableIngredientChip(entry.key),
+                    ),
+                    _buildNewIngredientChip(),
+                  ],
+                )
+              : Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _ingredients.map((ingredient) {
+                    return _buildIngredientDisplayChip(ingredient);
+                  }).toList(),
+                ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "步骤",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              if (_isEditing)
+                TextButton.icon(
+                  onPressed: _addStep,
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('添加', style: TextStyle(fontSize: 13)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _isEditing
+              ? Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ..._steps.asMap().entries.map(
+                      (entry) => _buildEditableStepChip(entry.key),
+                    ),
+                    _buildNewStepChip(),
+                  ],
+                )
+              : Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: _steps.asMap().entries.map((entry) {
+                    return _buildStepDisplayChip(entry.key, entry.value);
+                  }).toList(),
+                ),
+                const SizedBox(height: 100), // Space for bottom actions
+              ],
             ),
           ),
         ],
@@ -1636,7 +1811,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                     // 编辑模式：取消和确认按钮
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: _cancelEdit,
+                        onPressed: _isAddToMyRecipesMode
+                            ? _cancelAddToMyRecipes
+                            : _cancelEdit,
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
@@ -1649,14 +1826,16 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: _confirmEdit,
+                        onPressed: _isAddToMyRecipesMode
+                            ? _confirmAddToMyRecipes
+                            : _confirmEdit,
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Text("确认"),
+                        child: Text(_isAddToMyRecipesMode ? "确认加入" : "确认"),
                       ),
                     ),
                   ],
@@ -1695,7 +1874,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                     const SizedBox(width: 12),
                     // 根据来源显示不同的按钮
                     if (widget.isFromMyRecipes) ...[
-                      // 从"我的菜谱"进入：修改食材和加入今日菜单
+                      // 从"我的菜谱"进入：修改食材和加入/移除已点菜品
                       Expanded(
                         child: OutlinedButton(
                           onPressed: _enterEditMode,
@@ -1711,41 +1890,67 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: _addToTodayMenu,
+                          onPressed: _isProcessing
+                              ? null
+                              : _toggleSelectedMeals,
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
+                            backgroundColor: _isInSelectedMeals
+                                ? Theme.of(context).colorScheme.secondary
+                                : null,
                           ),
-                          child: const Text("加入今日菜单"),
+                          child: _isProcessing
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Text(_isInSelectedMeals ? "已点" : "加入已点菜品"),
                         ),
                       ),
                     ] else ...[
-                      // 从"网络菜谱"进入：加入我的菜单和加入今日菜单
+                      // 从"网络菜谱"进入：加入我的菜谱和加入/移除已点菜品
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: _addToMyRecipes,
+                          onPressed: _enterAddToMyRecipesMode,
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: const Text("加入我的菜单"),
+                          child: const Text("加入我的菜谱"),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: _addToTodayMenu,
+                          onPressed: _isProcessing
+                              ? null
+                              : _toggleSelectedMeals,
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
+                            backgroundColor: _isInSelectedMeals
+                                ? Theme.of(context).colorScheme.secondary
+                                : null,
                           ),
-                          child: const Text("加入今日菜单"),
+                          child: _isProcessing
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Text(_isInSelectedMeals ? "已点" : "加入已点菜品"),
                         ),
                       ),
                     ],

@@ -8,6 +8,7 @@ import '../services/meal_service.dart';
 import '../services/menu_service.dart';
 import '../services/recipe_service.dart';
 import '../services/http_client.dart';
+import '../services/today_menu_state.dart';
 import '../widgets/recipe_card.dart';
 import '../widgets/refreshable_screen.dart';
 import '../utils/app_constants.dart';
@@ -94,6 +95,9 @@ class _MealsScreenState extends State<MealsScreen>
   /// 分类服务
   final CategoryService _categoryService = CategoryService();
 
+  /// 今日菜单状态管理器
+  final TodayMenuState _todayMenuState = TodayMenuState();
+
   /// 是否展开筛选面板
   bool _filterExpanded = false;
 
@@ -112,10 +116,7 @@ class _MealsScreenState extends State<MealsScreen>
   /// 当前展开的筛选类型
   String? _activeFilterType;
 
-  /// 已点的菜品列表
-  final List<Recipe> _selectedMeals = [];
-
-  /// 菜谱列表
+  /// 菜谱列表（从今日菜单和收藏获取）
   List<Recipe> _recipes = [];
 
   /// 口味分类列表
@@ -130,8 +131,22 @@ class _MealsScreenState extends State<MealsScreen>
   @override
   void initState() {
     super.initState();
+    _todayMenuState.addListener(_onTodayMenuStateChanged);
     _loadRecipes();
     _loadCategories();
+  }
+
+  @override
+  void dispose() {
+    _todayMenuState.removeListener(_onTodayMenuStateChanged);
+    super.dispose();
+  }
+
+  /// 今日菜单状态变化回调
+  void _onTodayMenuStateChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   /// 构建筛选面板容器
@@ -457,31 +472,18 @@ class _MealsScreenState extends State<MealsScreen>
     setState(() => _isLoading = true);
 
     try {
-      // 并行获取今日菜单和收藏的菜谱
-      final results = await Future.wait([
-        _menuService.getTodayMenu(),
-        _recipeService.getMyRecipes(favorite: true),
-      ]);
+      // 先加载今日菜单状态
+      await _todayMenuState.loadTodayMenu();
 
-      final todayMenu = results[0] as TodayMenu?;
-      final favoriteRecipesResult = results[1] as PagedData<Recipe>?;
+      // 获取收藏的菜谱
+      final favoriteRecipesResult = await _recipeService.getMyRecipes(
+        favorite: true,
+      );
 
       final List<Recipe> allRecipes = [];
 
-      // 添加今日菜单中的菜谱
-      if (todayMenu != null && todayMenu.recipes.isNotEmpty) {
-        final menuRecipeIds = todayMenu.recipes.map((r) => r.recipeId).toList();
-        for (final recipeId in menuRecipeIds) {
-          try {
-            final recipe = await _recipeService.getRecipeDetail(recipeId);
-            if (recipe != null) {
-              allRecipes.add(recipe);
-            }
-          } catch (e) {
-            debugPrint('加载菜单菜谱详情失败: $e');
-          }
-        }
-      }
+      // 添加今日菜单中的菜谱（从状态管理器获取）
+      allRecipes.addAll(_todayMenuState.menuRecipes);
 
       // 添加收藏的菜谱
       if (favoriteRecipesResult != null &&
@@ -730,27 +732,36 @@ class _MealsScreenState extends State<MealsScreen>
   }
 
   /// 确认点餐
+  /// 提交已点菜品，生成今日菜单
   Future<void> _confirmOrder() async {
-    if (_selectedMeals.isEmpty) return;
+    final selectedMeals = _todayMenuState.selectedMeals;
+    if (selectedMeals.isEmpty) return;
 
-    final orderRecipes = _selectedMeals
+    final orderRecipes = selectedMeals
         .map((r) => OrderRecipe(recipeId: r.id, recipeName: r.name))
         .toList();
 
     final order = await _mealService.createMealOrder(orderRecipes);
     if (order != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('已提交 ${_selectedMeals.length} 道菜品'),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+      // 清空已点菜品
+      _todayMenuState.clearSelected();
+
+      // 刷新今日菜单（已提交的菜品会显示在今日菜单中）
+      await _todayMenuState.refreshTodayMenu();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('已提交 ${selectedMeals.length} 道菜品'),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
-        ),
-      );
-      setState(() => _selectedMeals.clear());
-      Navigator.pop(context);
+        );
+        Navigator.pop(context);
+      }
     }
   }
 
@@ -782,7 +793,7 @@ class _MealsScreenState extends State<MealsScreen>
           ],
         ),
       ),
-      floatingActionButton: _selectedMeals.isNotEmpty
+      floatingActionButton: _todayMenuState.selectedCount > 0
           ? _buildModernFAB(colorScheme)
           : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
@@ -962,53 +973,42 @@ class _MealsScreenState extends State<MealsScreen>
         itemCount: _recipes.length,
         itemBuilder: (context, index) {
           final recipe = _recipes[index];
-          final isAdded = _selectedMeals.any((meal) => meal.id == recipe.id);
+          final isAdded = _todayMenuState.isSelected(recipe.id);
           return RecipeCard(
             recipe: recipe,
             isAdded: isAdded,
-            onTap: () {
-              Navigator.push(
+            onTap: () async {
+              final result = await Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => RecipeDetailScreen(recipeId: recipe.id),
+                  builder: (context) => RecipeDetailScreen(
+                    recipeId: recipe.id,
+                    isFromMyRecipes: true,
+                  ),
                 ),
               );
+              // 如果详情页有变化，刷新列表
+              if (result == true) {
+                _loadRecipes();
+              }
             },
             onAdd: () {
               if (!mounted) return;
-              setState(() {
-                if (!isAdded) {
-                  // 添加到点餐单
-                  _selectedMeals.add(recipe);
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('已添加 ${recipe.name}'),
-                        duration: AppConstants.snackBarDuration,
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    );
-                  }
-                } else {
-                  // 从点餐单移除
-                  _selectedMeals.removeWhere((meal) => meal.id == recipe.id);
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('已移除 ${recipe.name}'),
-                        duration: AppConstants.snackBarDuration,
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    );
-                  }
-                }
-              });
+              final wasAdded = _todayMenuState.toggleSelected(recipe);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      wasAdded ? '已添加 ${recipe.name}' : '已移除 ${recipe.name}',
+                    ),
+                    duration: AppConstants.snackBarDuration,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                );
+              }
             },
           );
         },
@@ -1061,7 +1061,7 @@ class _MealsScreenState extends State<MealsScreen>
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    '${_selectedMeals.length}',
+                    '${_todayMenuState.selectedCount}',
                     style: TextStyle(
                       color: colorScheme.onError,
                       fontSize: AppConstants.textSizeS,
@@ -1090,15 +1090,16 @@ class _MealsScreenState extends State<MealsScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) {
+      builder: (context) => ListenableBuilder(
+        listenable: _todayMenuState,
+        builder: (context, child) {
+          final currentMeals = _todayMenuState.selectedMeals;
           return DraggableScrollableSheet(
             initialChildSize: 0.7,
             minChildSize: 0.5,
             maxChildSize: 0.95,
             expand: false,
             builder: (context, scrollController) {
-              final currentMeals = List<Recipe>.from(_selectedMeals);
               return Container(
                 decoration: BoxDecoration(
                   color: colorScheme.surface,
@@ -1179,7 +1180,6 @@ class _MealsScreenState extends State<MealsScreen>
                                   colorScheme,
                                   meal,
                                   index,
-                                  setModalState,
                                 );
                               },
                             ),
@@ -1233,7 +1233,6 @@ class _MealsScreenState extends State<MealsScreen>
     ColorScheme colorScheme,
     Recipe meal,
     int index,
-    StateSetter setModalState,
   ) {
     return Container(
       margin: EdgeInsets.only(bottom: AppConstants.spacingL),
@@ -1294,14 +1293,8 @@ class _MealsScreenState extends State<MealsScreen>
           color: Colors.transparent,
           child: InkWell(
             onTap: () {
-              if (!mounted) return;
-              setState(() {
-                if (index < _selectedMeals.length) {
-                  _selectedMeals.removeAt(index);
-                }
-              });
-              setModalState(() {});
-              if (_selectedMeals.isEmpty && mounted) {
+              _todayMenuState.removeFromSelected(meal.id);
+              if (_todayMenuState.selectedCount == 0 && mounted) {
                 Navigator.pop(context);
               }
             },
@@ -1350,8 +1343,7 @@ class _MealsScreenState extends State<MealsScreen>
           Expanded(
             child: OutlinedButton(
               onPressed: () {
-                if (!mounted) return;
-                setState(() => _selectedMeals.clear());
+                _todayMenuState.clearSelected();
                 if (mounted) Navigator.pop(context);
               },
               style: OutlinedButton.styleFrom(

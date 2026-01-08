@@ -83,7 +83,9 @@ class _HomeScreenState extends State<HomeScreen>
 
       if (_todayMenu != null && _todayMenu!.recipes.isNotEmpty) {
         final recipeDetails = await Future.wait(
-          _todayMenu!.recipes.map((r) => _recipeService.getRecipeDetail(r.recipeId)),
+          _todayMenu!.recipes.map(
+            (r) => _recipeService.getRecipeDetail(r.recipeId),
+          ),
         );
         _todayRecipes = recipeDetails.whereType<Recipe>().toList();
       }
@@ -176,9 +178,7 @@ class _HomeScreenState extends State<HomeScreen>
                     padding: const EdgeInsets.symmetric(
                       horizontal: BentoStyle.gridSpacing,
                     ),
-                    sliver: SliverToBoxAdapter(
-                      child: _buildBentoGrid(),
-                    ),
+                    sliver: SliverToBoxAdapter(child: _buildBentoGrid()),
                   ),
                   // 底部间距
                   const SliverToBoxAdapter(child: SizedBox(height: 100)),
@@ -227,7 +227,9 @@ class _HomeScreenState extends State<HomeScreen>
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => const ProfileScreen(),
+                  ),
                 );
               },
               child: Container(
@@ -248,7 +250,11 @@ class _HomeScreenState extends State<HomeScreen>
                         gradient: AppColors.warmGradient,
                         borderRadius: BorderRadius.circular(18),
                       ),
-                      child: const Icon(Icons.person, color: Colors.white, size: 26),
+                      child: const Icon(
+                        Icons.person,
+                        color: Colors.white,
+                        size: 26,
+                      ),
                     ),
                   ),
                 ),
@@ -288,10 +294,10 @@ class _HomeScreenState extends State<HomeScreen>
           child: _buildWeekMenuCard(),
         ),
 
-        // 4. 今日菜单 - 4x3.5 超宽卡片
+        // 4. 今日菜单 - 4x2.8 超宽卡片
         StaggeredGridTile.count(
           crossAxisCellCount: 4,
-          mainAxisCellCount: 3.5,
+          mainAxisCellCount: 2.8,
           child: _buildTodayMenuCard(),
         ),
 
@@ -420,7 +426,9 @@ class _HomeScreenState extends State<HomeScreen>
                   "记录你的拿手好菜",
                   style: TextStyle(
                     fontSize: 11,
-                    color: AppColors.onSecondaryContainer.withValues(alpha: 0.7),
+                    color: AppColors.onSecondaryContainer.withValues(
+                      alpha: 0.7,
+                    ),
                   ),
                 ),
               ],
@@ -524,28 +532,57 @@ class _HomeScreenState extends State<HomeScreen>
                       letterSpacing: -0.3,
                     ),
                   ),
-                ],
-              ),
-              TextButton(
-                onPressed: () {},
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
-                child: Row(
-                  children: [
-                    Text(
-                      '查看全部',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w600,
+                  if (_todayRecipes.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${_todayRecipes.length}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    Icon(Icons.arrow_forward_ios_rounded, size: 12, color: AppColors.primary),
                   ],
-                ),
+                ],
               ),
+              if (_todayRecipes.isNotEmpty)
+                TextButton(
+                  onPressed: () => _showTodayMenuDialog(),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        '查看全部',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 12,
+                        color: AppColors.primary,
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 12),
@@ -553,23 +590,259 @@ class _HomeScreenState extends State<HomeScreen>
           Expanded(
             child: _todayRecipes.isEmpty
                 ? _buildEmptyMenuContent()
-                : ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    clipBehavior: Clip.none,
-                    itemCount: _todayRecipes.length,
-                    itemBuilder: (context, index) {
-                      final recipe = _todayRecipes[index];
-                      return Container(
-                        width: 140,
-                        margin: EdgeInsets.only(
-                          right: index < _todayRecipes.length - 1 ? 12 : 0,
-                        ),
-                        child: _buildMiniRecipeCard(recipe),
-                      );
-                    },
+                : ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      clipBehavior: Clip.hardEdge,
+                      itemCount: _todayRecipes.length > 4
+                          ? 4
+                          : _todayRecipes.length,
+                      itemBuilder: (context, index) {
+                        final recipe = _todayRecipes[index];
+                        return Container(
+                          width: 100,
+                          margin: EdgeInsets.only(
+                            right:
+                                index <
+                                    (_todayRecipes.length > 4
+                                        ? 3
+                                        : _todayRecipes.length - 1)
+                                ? 10
+                                : 0,
+                          ),
+                          child: _buildMiniRecipeCard(recipe),
+                        );
+                      },
+                    ),
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// 显示今日菜单弹窗
+  void _showTodayMenuDialog() {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) {
+          return Container(
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
+            ),
+            child: Column(
+              children: [
+                // 拖动条
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colorScheme.outline.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // 标题
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '今日菜单',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '共 ${_todayRecipes.length} 道',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                // 菜谱列表
+                Expanded(
+                  child: GridView.builder(
+                    controller: scrollController,
+                    padding: const EdgeInsets.all(16),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 0.78,
+                        ),
+                    itemCount: _todayRecipes.length,
+                    itemBuilder: (context, index) {
+                      final recipe = _todayRecipes[index];
+                      return _buildDialogRecipeCard(recipe);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// 弹窗中的菜谱卡片
+  Widget _buildDialogRecipeCard(Recipe recipe) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.pop(context);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                RecipeDetailScreen(recipeId: recipe.id, isFromMyRecipes: true),
+          ),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLight,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 图片区域 - 固定高度 130，与菜谱卡片保持一致
+            Container(
+              height: 130,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: AppColors.warmGradient,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
+              ),
+              child: Stack(
+                children: [
+                  Center(
+                    child: Icon(
+                      Icons.restaurant_rounded,
+                      size: 40,
+                      color: Colors.white.withValues(alpha: 0.8),
+                    ),
+                  ),
+                  if (recipe.favorite)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.favorite,
+                          size: 16,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            // 信息区域
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    recipe.name,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.access_time_rounded,
+                        size: 12,
+                        color: AppColors.onSurfaceVariantLight,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        recipe.time,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.onSurfaceVariantLight,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(
+                        Icons.local_fire_department_rounded,
+                        size: 12,
+                        color: AppColors.onSurfaceVariantLight,
+                      ),
+                      const SizedBox(width: 2),
+                      Expanded(
+                        child: Text(
+                          recipe.difficulty,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.onSurfaceVariantLight,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -612,103 +885,59 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  /// 迷你菜谱卡片
+  /// 迷你菜谱卡片（简化版：只显示图片和名字）
   Widget _buildMiniRecipeCard(Recipe recipe) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => RecipeDetailScreen(recipeId: recipe.id),
+            builder: (context) =>
+                RecipeDetailScreen(recipeId: recipe.id, isFromMyRecipes: true),
           ),
         );
       },
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.surfaceContainerLight,
-          borderRadius: BorderRadius.circular(BentoStyle.smallRadius),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 图片区域
+            // 图片区域 - 调整比例，图片占2，文字占1
             Expanded(
-              flex: 3,
+              flex: 2,
               child: Container(
+                width: double.infinity,
                 decoration: BoxDecoration(
                   gradient: AppColors.warmGradient,
                   borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(BentoStyle.smallRadius),
+                    top: Radius.circular(12),
                   ),
                 ),
-                child: Stack(
-                  children: [
-                    Center(
-                      child: Icon(
-                        Icons.restaurant_rounded,
-                        size: 32,
-                        color: Colors.white.withValues(alpha: 0.8),
-                      ),
-                    ),
-                    // 收藏图标
-                    Positioned(
-                      top: 6,
-                      right: 6,
-                      child: Container(
-                        width: 26,
-                        height: 26,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          recipe.favorite ? Icons.favorite : Icons.favorite_border,
-                          size: 14,
-                          color: recipe.favorite ? Colors.red : Colors.grey,
-                        ),
-                      ),
-                    ),
-                  ],
+                child: Center(
+                  child: Icon(
+                    Icons.restaurant_rounded,
+                    size: 24,
+                    color: Colors.white.withValues(alpha: 0.8),
+                  ),
                 ),
               ),
             ),
-            // 信息区域
-            Expanded(
-              flex: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      recipe.name,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.access_time_rounded,
-                          size: 11,
-                          color: AppColors.onSurfaceVariantLight,
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          recipe.time,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: AppColors.onSurfaceVariantLight,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+            // 名字区域
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Text(
+                recipe.name,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
               ),
             ),
           ],
@@ -767,11 +996,7 @@ class _HomeScreenState extends State<HomeScreen>
               ],
             ),
           ),
-          Icon(
-            Icons.chevron_right_rounded,
-            color: AppColors.warning,
-            size: 28,
-          ),
+          Icon(Icons.chevron_right_rounded, color: AppColors.warning, size: 28),
         ],
       ),
     );
