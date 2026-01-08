@@ -2,6 +2,22 @@ import 'package:flutter/material.dart';
 import '../models/recipe.dart';
 import '../utils/app_theme.dart';
 
+const Map<String, Color> _difficultyBackgrounds = {
+  '有手就行': Color(0xFFE8F5E9),
+  '家常便饭': Color(0xFFE3F2FD),
+  '餐厅招牌': Color(0xFFFFFDE7),
+  '硬核挑战': Color(0xFFFFF3E0),
+  '专业厨师': Color(0xFFFFEBEE),
+};
+
+const Map<String, Color> _difficultyTextColors = {
+  '有手就行': Color(0xFF4CAF50),
+  '家常便饭': Color(0xFF2196F3),
+  '餐厅招牌': Color(0xFFFBC02D),
+  '硬核挑战': Color(0xFFF57C00),
+  '专业厨师': Color(0xFFD32F2F),
+};
+
 class RecipeCard extends StatelessWidget {
   final Recipe recipe;
   final VoidCallback? onTap;
@@ -151,8 +167,8 @@ class RecipeCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      // 星级难度显示
-                      _buildStarRating(_getDifficultyStars(recipe.difficulty)),
+                      if (recipe.difficulty.isNotEmpty)
+                        _buildDifficultyBadge(recipe.difficulty, colorScheme),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -216,9 +232,33 @@ class RecipeCard extends StatelessWidget {
     );
   }
 
+  /// 构建难度标识
+  Widget _buildDifficultyBadge(String difficulty, ColorScheme colorScheme) {
+    final background =
+        _difficultyBackgrounds[difficulty] ??
+        colorScheme.surfaceContainerHighest.withValues(alpha: 0.15);
+    final textColor =
+        _difficultyTextColors[difficulty] ?? colorScheme.onSurface;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        difficulty,
+        style: TextStyle(
+          fontSize: 10,
+          color: textColor,
+          fontWeight: FontWeight.w600,
+          inherit: false,
+        ),
+      ),
+    );
+  }
+
   /// 构建标签列表
-  /// colorScheme: 颜色方案
-  /// 返回: 标签 Widget 列表
   List<Widget> _buildTags(ColorScheme colorScheme) {
     if (recipe.tags.isEmpty) {
       return [];
@@ -230,11 +270,8 @@ class RecipeCard extends StatelessWidget {
       final tagColorClass = index < recipe.tagColors.length
           ? recipe.tagColors[index]
           : null;
-
-      // 解析标签颜色
       final backgroundColor = TagColorUtils.parseColor(tagColorClass);
       final textColor = TagColorUtils.getTextColor(backgroundColor);
-
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
@@ -252,45 +289,6 @@ class RecipeCard extends StatelessWidget {
         ),
       );
     }).toList();
-  }
-
-  /// 根据难度文字获取星级数值
-  double _getDifficultyStars(String difficulty) {
-    switch (difficulty) {
-      case '简单':
-        return 2.0;
-      case '中等':
-        return 3.0;
-      case '困难':
-        return 4.5;
-      default:
-        return 3.0;
-    }
-  }
-
-  /// 构建星级评分显示
-  Widget _buildStarRating(double rating) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(5, (index) {
-        final starValue = index + 1;
-        IconData icon;
-
-        if (rating >= starValue) {
-          icon = Icons.star;
-        } else if (rating >= starValue - 0.5) {
-          icon = Icons.star_half;
-        } else {
-          icon = Icons.star_border;
-        }
-
-        return Icon(
-          icon,
-          size: 13,
-          color: Colors.amber,
-        );
-      }),
-    );
   }
 
   Widget _buildPlaceholder() {

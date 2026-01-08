@@ -7,6 +7,69 @@ import '../widgets/recipe_card.dart';
 import '../widgets/refreshable_screen.dart';
 import 'recipe_detail_screen.dart';
 
+const double _kFilterPanelHorizontalMargin = 20.0; // 筛选面板左右间距
+const double _kFilterPanelTopMargin = 18.0; // 筛选面板顶部距父组件高度
+const double _kFilterPanelPadding = 24.0; // 筛选面板内边距
+const double _kFilterPanelRadius = 28.0; // 筛选面板圆角
+const double _kFilterPanelSpacing = 18.0; // 筛选面板内组件垂直间距
+const double _kFilterContentMaxHeight = 320.0; // 筛选内容最大高度
+const double _kFilterTabSpacing = 12.0; // 筛选类型按钮间距
+const double _kFilterTabCornerRadius = 22.0; // 筛选类型按钮圆角
+const double _kFilterTabPaddingHorizontal = 18.0; // 筛选类型按钮水平内填充
+const double _kFilterTabPaddingVertical = 12.0; // 筛选类型按钮垂直内填充
+const double _kFilterTabBorderWidth = 1.0; // 筛选类型按钮边框宽度
+const double _kFilterStatusSpacing = 6.0; // 筛选状态图标与文字间距
+const double _kFilterResetButtonPaddingHorizontal = 16.0; // 重置按钮水平内填充
+const double _kFilterResetButtonPaddingVertical = 8.0; // 重置按钮垂直内填充
+const double _kFilterOptionSpacing = 12.0; // 筛选选项之间的间距
+const double _kFilterOptionCornerRadius = 16.0; // 筛选选项圆角
+const double _kFilterOptionBorderWidth = 1.0; // 筛选选项边框宽度
+const Duration _kFilterTabTransitionDuration = Duration(
+  milliseconds: 200,
+); // 筛选类型动画时长
+const List<BoxShadow> _kFilterPanelShadows = [
+  BoxShadow(
+    color: Color(0x28000000),
+    offset: Offset(0, 22),
+    blurRadius: 40,
+    spreadRadius: 1,
+  ),
+  BoxShadow(
+    color: Color(0x14ffffff),
+    offset: Offset(0, -8),
+    blurRadius: 30,
+    spreadRadius: 0,
+  ),
+];
+const List<BoxShadow> _kFilterTabShadows = [
+  BoxShadow(
+    color: Color(0x1e000000),
+    offset: Offset(0, 8),
+    blurRadius: 20,
+    spreadRadius: 0,
+  ),
+  BoxShadow(
+    color: Color(0x15ffffff),
+    offset: Offset(0, -4),
+    blurRadius: 18,
+    spreadRadius: 0,
+  ),
+];
+const List<BoxShadow> _kFilterTabActiveShadows = [
+  BoxShadow(
+    color: Color(0x34000000),
+    offset: Offset(0, 12),
+    blurRadius: 30,
+    spreadRadius: 0,
+  ),
+  BoxShadow(
+    color: Color(0x18ffffff),
+    offset: Offset(0, -6),
+    blurRadius: 22,
+    spreadRadius: 0,
+  ),
+];
+
 /// 菜谱页面
 class RecipesScreen extends RefreshableScreen {
   const RecipesScreen({super.key});
@@ -39,7 +102,7 @@ class _RecipesScreenState extends State<RecipesScreen>
   final List<String> _selectedTastes = [];
 
   /// 选中的难度
-  final List<String> _selectedDifficulty = [];
+  final List<String> _selectedDifficulties = [];
 
   /// 选中的菜系
   final List<String> _selectedCuisines = [];
@@ -223,8 +286,8 @@ class _RecipesScreenState extends State<RecipesScreen>
       final tastes = _selectedTastes.isNotEmpty
           ? _selectedTastes.join(',')
           : null;
-      final difficulty = _selectedDifficulty.isNotEmpty
-          ? _selectedDifficulty.join(',')
+      final difficulty = _selectedDifficulties.isNotEmpty
+          ? _selectedDifficulties.join(',')
           : null;
       final cuisines = _selectedCuisines.isNotEmpty
           ? _selectedCuisines.join(',')
@@ -509,79 +572,129 @@ class _RecipesScreenState extends State<RecipesScreen>
           });
         },
         child: Container(
-          color: Colors.black.withValues(alpha: 0.5),
-          child: Column(
-            children: [
-              // 横向的筛选类型标签
-              GestureDetector(
-                onTap: () {}, // 阻止点击事件传递到背景
-                child: Container(
-                  color: colorScheme.surface,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
-                              _buildFilterTypeTab(
-                                'taste',
-                                '口味',
-                                _selectedTastes.isNotEmpty,
-                              ),
-                              const SizedBox(width: 12),
-                              _buildFilterTypeTab(
-                                'difficulty',
-                                '难度',
-                                _selectedDifficulty.isNotEmpty,
-                              ),
-                              const SizedBox(width: 12),
-                              _buildFilterTypeTab(
-                                'cuisine',
-                                '菜系',
-                                _selectedCuisines.isNotEmpty,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _selectedTastes.clear();
-                            _selectedDifficulty.clear();
-                            _selectedCuisines.clear();
-                          });
-                          _loadRecipes();
-                        },
-                        child: const Text('重置'),
-                      ),
-                    ],
-                  ),
-                ),
+          color: Colors.black.withValues(alpha: 0.35),
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                _kFilterPanelHorizontalMargin,
+                _kFilterPanelTopMargin,
+                _kFilterPanelHorizontalMargin,
+                0,
               ),
-              // 展开的筛选项
-              if (_activeFilterType != null)
-                GestureDetector(
-                  onTap: () {}, // 阻止点击事件传递到背景
-                  child: Container(
-                    constraints: const BoxConstraints(maxHeight: 300),
-                    color: colorScheme.surface,
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: _buildFilterContent(),
-                    ),
-                  ),
-                ),
-            ],
+              child: GestureDetector(
+                onTap: () {}, // 阻止点击事件传递到背景
+                child: _buildFilterPanel(colorScheme),
+              ),
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  /// 构建筛选面板容器
+  Widget _buildFilterPanel(ColorScheme colorScheme) {
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(_kFilterPanelRadius),
+        border: Border.all(
+          color: colorScheme.onSurface.withValues(alpha: 0.08),
+          width: _kFilterOptionBorderWidth,
+        ),
+        boxShadow: _kFilterPanelShadows,
+      ),
+      padding: const EdgeInsets.all(_kFilterPanelPadding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildFilterPanelHeader(),
+          if (_activeFilterType != null) ...[
+            const SizedBox(height: _kFilterPanelSpacing),
+            Container(
+              constraints: const BoxConstraints(
+                maxHeight: _kFilterContentMaxHeight,
+              ),
+              child: SingleChildScrollView(child: _buildFilterContent()),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// 构建筛选面板标题和类型布局
+  Widget _buildFilterPanelHeader() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              '筛选',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
+              ),
+            ),
+            const Spacer(),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _selectedTastes.clear();
+                  _selectedDifficulties.clear();
+                  _selectedCuisines.clear();
+                });
+                _loadRecipes();
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: colorScheme.primary,
+                backgroundColor: colorScheme.surfaceVariant.withValues(
+                  alpha: 0.6,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: _kFilterResetButtonPaddingHorizontal,
+                  vertical: _kFilterResetButtonPaddingVertical,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                  side: BorderSide(
+                    color: colorScheme.primary.withValues(alpha: 0.2),
+                  ),
+                ),
+              ),
+              child: const Text('重置'),
+            ),
+          ],
+        ),
+        const SizedBox(height: _kFilterTabSpacing),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _buildFilterTypeTab('taste', '口味', _selectedTastes.isNotEmpty),
+              const SizedBox(width: _kFilterTabSpacing),
+              _buildFilterTypeTab(
+                'difficulty',
+                '难度',
+                _selectedDifficulties.isNotEmpty,
+              ),
+              const SizedBox(width: _kFilterTabSpacing),
+              _buildFilterTypeTab(
+                'cuisine',
+                '菜系',
+                _selectedCuisines.isNotEmpty,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -592,6 +705,7 @@ class _RecipesScreenState extends State<RecipesScreen>
     final isActive = _activeFilterType == type;
 
     return InkWell(
+      borderRadius: BorderRadius.circular(_kFilterTabCornerRadius),
       onTap: () {
         setState(() {
           if (_activeFilterType == type) {
@@ -601,24 +715,26 @@ class _RecipesScreenState extends State<RecipesScreen>
           }
         });
       },
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: AnimatedContainer(
+        duration: _kFilterTabTransitionDuration,
+        padding: const EdgeInsets.symmetric(
+          horizontal: _kFilterTabPaddingHorizontal,
+          vertical: _kFilterTabPaddingVertical,
+        ),
         decoration: BoxDecoration(
           color: isActive
               ? colorScheme.primary
               : hasSelected
-              ? colorScheme.primaryContainer
-              : colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(20),
+              ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.9)
+              : colorScheme.surface,
+          borderRadius: BorderRadius.circular(_kFilterTabCornerRadius),
           border: Border.all(
             color: isActive
-                ? colorScheme.primary
-                : hasSelected
-                ? colorScheme.primary.withValues(alpha: 0.3)
-                : Colors.transparent,
-            width: 1,
+                ? Colors.transparent
+                : colorScheme.onSurface.withValues(alpha: 0.08),
+            width: _kFilterTabBorderWidth,
           ),
+          boxShadow: isActive ? _kFilterTabActiveShadows : _kFilterTabShadows,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -629,16 +745,18 @@ class _RecipesScreenState extends State<RecipesScreen>
                 color: isActive
                     ? colorScheme.onPrimary
                     : hasSelected
-                    ? colorScheme.onPrimaryContainer
-                    : colorScheme.onSurface,
-                fontWeight: hasSelected ? FontWeight.w600 : FontWeight.w500,
+                    ? colorScheme.primary
+                    : colorScheme.onSurface.withValues(alpha: 0.8),
+                fontWeight: hasSelected || isActive
+                    ? FontWeight.w600
+                    : FontWeight.w500,
               ),
             ),
             if (hasSelected) ...[
-              const SizedBox(width: 4),
+              const SizedBox(width: _kFilterStatusSpacing),
               Icon(
                 Icons.check_circle,
-                size: 16,
+                size: 18,
                 color: isActive ? colorScheme.onPrimary : colorScheme.primary,
               ),
             ],
@@ -650,10 +768,12 @@ class _RecipesScreenState extends State<RecipesScreen>
 
   /// 构建筛选内容
   Widget _buildFilterContent() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     switch (_activeFilterType) {
       case 'taste':
-        return _buildVerticalFilterOptions(
-          _tasteCategories.map((c) => c.name).toList(),
+        return _buildFilterOptionGrid(
+          _tasteCategories.map((category) => category.name).toList(),
           _selectedTastes,
           (taste) {
             setState(() {
@@ -665,12 +785,27 @@ class _RecipesScreenState extends State<RecipesScreen>
             });
             _loadRecipes();
           },
+          colorScheme,
         );
       case 'difficulty':
-        return _buildDifficultyStarFilter();
+        return _buildFilterOptionGrid(
+          _difficultyCategories.map((category) => category.name).toList(),
+          _selectedDifficulties,
+          (difficulty) {
+            setState(() {
+              if (_selectedDifficulties.contains(difficulty)) {
+                _selectedDifficulties.remove(difficulty);
+              } else {
+                _selectedDifficulties.add(difficulty);
+              }
+            });
+            _loadRecipes();
+          },
+          colorScheme,
+        );
       case 'cuisine':
-        return _buildVerticalFilterOptions(
-          _cuisineCategories.map((c) => c.name).toList(),
+        return _buildFilterOptionGrid(
+          _cuisineCategories.map((category) => category.name).toList(),
           _selectedCuisines,
           (cuisine) {
             setState(() {
@@ -682,152 +817,58 @@ class _RecipesScreenState extends State<RecipesScreen>
             });
             _loadRecipes();
           },
+          colorScheme,
         );
       default:
         return const SizedBox.shrink();
     }
   }
 
-  /// 构建纵向筛选选项
-  Widget _buildVerticalFilterOptions(
+  /// 构建筛选选项网格
+  Widget _buildFilterOptionGrid(
     List<String> options,
     List<String> selected,
     Function(String) onToggle,
+    ColorScheme colorScheme,
   ) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Wrap(
+      spacing: _kFilterOptionSpacing,
+      runSpacing: _kFilterOptionSpacing,
       children: options.map((option) {
         final isSelected = selected.contains(option);
-        return InkWell(
-          onTap: () => onToggle(option),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? colorScheme.primaryContainer.withValues(alpha: 0.5)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  isSelected ? Icons.check_circle : Icons.circle_outlined,
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(_kFilterOptionCornerRadius),
+            onTap: () => onToggle(option),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? colorScheme.primary
+                    : colorScheme.surfaceVariant.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(_kFilterOptionCornerRadius),
+                border: Border.all(
                   color: isSelected
                       ? colorScheme.primary
-                      : colorScheme.onSurface.withValues(alpha: 0.3),
-                  size: 20,
+                      : colorScheme.onSurface.withValues(alpha: 0.08),
+                  width: _kFilterOptionBorderWidth,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    option,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.w400,
-                      color: isSelected
-                          ? colorScheme.primary
-                          : colorScheme.onSurface,
-                    ),
-                  ),
+              ),
+              child: Text(
+                option,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: isSelected
+                      ? colorScheme.onPrimary
+                      : colorScheme.onSurface,
                 ),
-              ],
+              ),
             ),
           ),
         );
       }).toList(),
-    );
-  }
-
-  /// 构建难度星级筛选
-  Widget _buildDifficultyStarFilter() {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    // 难度映射：简单(1-2星)、中等(2.5-3.5星)、困难(4-5星)
-    final difficultyMap = {'简单': 2.0, '中等': 3.0, '困难': 4.5};
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: _difficultyCategories.map((category) {
-        final isSelected = _selectedDifficulty.contains(category.name);
-        final stars = difficultyMap[category.name] ?? 3.0;
-
-        return InkWell(
-          onTap: () {
-            setState(() {
-              if (_selectedDifficulty.contains(category.name)) {
-                _selectedDifficulty.remove(category.name);
-              } else {
-                _selectedDifficulty.add(category.name);
-              }
-            });
-            _loadRecipes();
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? colorScheme.primaryContainer.withValues(alpha: 0.5)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  isSelected ? Icons.check_circle : Icons.circle_outlined,
-                  color: isSelected
-                      ? colorScheme.primary
-                      : colorScheme.onSurface.withValues(alpha: 0.3),
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    category.name,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.w400,
-                      color: isSelected
-                          ? colorScheme.primary
-                          : colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                _buildStarRating(stars),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  /// 构建星级评分显示
-  Widget _buildStarRating(double rating) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(5, (index) {
-        final starValue = index + 1;
-        IconData icon;
-
-        if (rating >= starValue) {
-          icon = Icons.star;
-        } else if (rating >= starValue - 0.5) {
-          icon = Icons.star_half;
-        } else {
-          icon = Icons.star_border;
-        }
-
-        return Icon(icon, size: 18, color: Colors.amber);
-      }),
     );
   }
 
