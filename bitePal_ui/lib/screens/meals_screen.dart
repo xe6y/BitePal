@@ -412,7 +412,9 @@ class _MealsScreenState extends State<MealsScreen>
               decoration: BoxDecoration(
                 color: isSelected
                     ? colorScheme.primary
-                    : colorScheme.surfaceVariant.withValues(alpha: 0.2),
+                    : colorScheme.surfaceContainerHighest.withValues(
+                        alpha: 0.2,
+                      ),
                 borderRadius: BorderRadius.circular(_kFilterOptionCornerRadius),
                 border: Border.all(
                   color: isSelected

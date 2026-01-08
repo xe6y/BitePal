@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import '../models/recipe.dart';
 import '../models/ingredient_item.dart';
 import '../models/today_menu.dart';
@@ -6,12 +7,13 @@ import '../services/menu_service.dart';
 import '../services/ingredient_service.dart';
 import '../services/recipe_service.dart';
 import '../utils/app_theme.dart';
+import '../widgets/bento_card.dart';
 import '../widgets/random_meal_dialog.dart';
 import '../widgets/refreshable_screen.dart';
 import 'recipe_detail_screen.dart';
 import 'profile_screen.dart';
 
-/// 首页
+/// 首页 - Bento Grid 风格
 class HomeScreen extends RefreshableScreen {
   const HomeScreen({super.key});
 
@@ -19,7 +21,8 @@ class HomeScreen extends RefreshableScreen {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin, RefreshableScreenState<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin, RefreshableScreenState<HomeScreen> {
   /// 菜单服务
   final MenuService _menuService = MenuService();
 
@@ -102,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         id: '1',
         name: "番茄炒蛋",
         time: "15 分钟",
-        difficulty: "简单",
+        difficulty: "家常便饭",
         tags: ["常做"],
         tagColors: ["bg-blue-500"],
         favorite: false,
@@ -112,7 +115,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         id: '4',
         name: "红烧肉",
         time: "45 分钟",
-        difficulty: "中等",
+        difficulty: "餐厅招牌",
         tags: ["常做"],
         tagColors: ["bg-blue-500"],
         favorite: false,
@@ -157,6 +160,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: BentoStyle.backgroundColor,
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -165,15 +169,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
-                  // 头部Hero区域（包含快捷操作）
-                  SliverToBoxAdapter(child: _buildHeroSection()),
-                  // 今日菜单
-                  SliverToBoxAdapter(child: _buildTodayMenu()),
-                  // 食材提醒
-                  if (_expiringIngredients.isNotEmpty) ...[
-                    SliverToBoxAdapter(child: _buildIngredientAlert()),
-                    SliverToBoxAdapter(child: _buildExpiringSoon()),
-                  ],
+                  // 顶部问候区域
+                  SliverToBoxAdapter(child: _buildGreetingHeader()),
+                  // Bento Grid 主内容
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: BentoStyle.gridSpacing,
+                    ),
+                    sliver: SliverToBoxAdapter(
+                      child: _buildBentoGrid(),
+                    ),
+                  ),
                   // 底部间距
                   const SliverToBoxAdapter(child: SizedBox(height: 100)),
                 ],
@@ -182,347 +188,432 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  /// 构建Hero区域（包含问候语、搜索框和快捷操作）
-  Widget _buildHeroSection() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFF8A5B),
-            Color(0xFFFF6B35),
+  /// 构建问候头部
+  Widget _buildGreetingHeader() {
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _getGreeting(),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.onSurfaceVariantLight,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "今天想吃点什么？",
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.onBackgroundLight,
+                      letterSpacing: -0.8,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // 头像
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                );
+              },
+              child: Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: BentoStyle.cardShadow,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: Image.asset(
+                    'assets/cartoon-avatar.png',
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      decoration: BoxDecoration(
+                        gradient: AppColors.warmGradient,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: const Icon(Icons.person, color: Colors.white, size: 26),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(32),
-          bottomRight: Radius.circular(32),
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 顶部栏：问候语 + 头像
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _getGreeting(),
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.white.withValues(alpha: 0.9),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          "今天想吃点什么？",
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // 头像
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const ProfileScreen()),
-                      );
-                    },
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.15),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(14),
-                        child: Image.asset(
-                          'assets/cartoon-avatar.png',
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Container(
-                            decoration: BoxDecoration(
-                              gradient: AppColors.warmGradient,
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: const Icon(Icons.person, color: Colors.white, size: 24),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              // 搜索框
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: TextField(
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: '搜索菜谱、食材...',
-                    hintStyle: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
-                    ),
-                    prefixIcon: Icon(
-                      Icons.search_rounded,
-                      color: Colors.white.withValues(alpha: 0.8),
-                    ),
-                    border: InputBorder.none,
-                    filled: false,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  ),
-                  onTap: () {
-                    // 跳转到搜索页面
-                  },
-                ),
-              ),
-              const SizedBox(height: 20),
-              // 快捷操作按钮
-              Row(
-                children: [
-                  _buildHeroActionButton(
-                    icon: Icons.shuffle_rounded,
-                    label: '随便吃点',
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => const RandomMealDialog(),
-                      );
-                    },
-                  ),
-                  const SizedBox(width: 12),
-                  _buildHeroActionButton(
-                    icon: Icons.add_rounded,
-                    label: '添加菜谱',
-                    onTap: () {
-                      // 导航到添加菜谱
-                    },
-                  ),
-                  const SizedBox(width: 12),
-                  _buildHeroActionButton(
-                    icon: Icons.calendar_month_rounded,
-                    label: '周菜单',
-                    onTap: () {
-                      // 导航到周菜单
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
 
-  /// 构建Hero区域内的操作按钮
-  Widget _buildHeroActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Column(
-            children: [
-              Icon(icon, color: Colors.white, size: 24),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
+  /// 构建 Bento Grid
+  Widget _buildBentoGrid() {
+    return StaggeredGrid.count(
+      crossAxisCount: 4,
+      mainAxisSpacing: BentoStyle.gridSpacing,
+      crossAxisSpacing: BentoStyle.gridSpacing,
+      children: [
+        // 1. 随便吃点 - 2x2.1 大卡片（主要功能）
+        StaggeredGridTile.count(
+          crossAxisCellCount: 2,
+          mainAxisCellCount: 2.1,
+          child: _buildRandomMealCard(),
         ),
-      ),
+
+        // 2. 添加菜谱 - 2x1 横向卡片
+        StaggeredGridTile.count(
+          crossAxisCellCount: 2,
+          mainAxisCellCount: 1,
+          child: _buildAddRecipeCard(),
+        ),
+
+        // 3. 周菜单 - 2x1 横向卡片
+        StaggeredGridTile.count(
+          crossAxisCellCount: 2,
+          mainAxisCellCount: 1,
+          child: _buildWeekMenuCard(),
+        ),
+
+        // 4. 今日菜单 - 4x3.5 超宽卡片
+        StaggeredGridTile.count(
+          crossAxisCellCount: 4,
+          mainAxisCellCount: 3.5,
+          child: _buildTodayMenuCard(),
+        ),
+
+        // 5. 食材提醒 - 4x1.5 提醒卡片（如果有过期食材）
+        if (_expiringIngredients.isNotEmpty)
+          StaggeredGridTile.count(
+            crossAxisCellCount: 4,
+            mainAxisCellCount: 1.2,
+            child: _buildIngredientAlertCard(),
+          ),
+
+        // 6. 即将过期食材列表 - 每个食材一个小卡片
+        if (_expiringIngredients.isNotEmpty)
+          ..._expiringIngredients.take(3).map((ingredient) {
+            return StaggeredGridTile.count(
+              crossAxisCellCount: 2,
+              mainAxisCellCount: 1,
+              child: _buildIngredientCard(ingredient),
+            );
+          }),
+      ],
     );
   }
 
-  /// 构建今日菜单
-  Widget _buildTodayMenu() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+  /// 随便吃点 - 主要功能卡片
+  Widget _buildRandomMealCard() {
+    return BentoCard(
+      onTap: () {
+        showDialog(
+          context: context,
+          builder: (context) => const RandomMealDialog(),
+        );
+      },
+      gradient: AppColors.primaryGradient,
+      decorIcon: Icons.restaurant_rounded,
+      decorIconColor: Colors.white.withValues(alpha: 0.15),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          // 顶部图标
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(
+              Icons.shuffle_rounded,
+              color: Colors.white,
+              size: 28,
+            ),
+          ),
+          // 底部文字
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                "今日菜单",
+                "随便吃点",
                 style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
                   letterSpacing: -0.5,
                 ),
               ),
+              const SizedBox(height: 6),
+              Text(
+                "让我来帮你决定今天吃什么",
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.white.withValues(alpha: 0.85),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 添加菜谱卡片
+  Widget _buildAddRecipeCard() {
+    return BentoCard(
+      onTap: () {
+        // 导航到添加菜谱
+      },
+      backgroundColor: AppColors.secondaryContainer,
+      decorIcon: Icons.add_circle_outline_rounded,
+      decorIconColor: AppColors.secondary.withValues(alpha: 0.12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.secondary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.add_rounded,
+              color: AppColors.secondary,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  "添加菜谱",
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.onSecondaryContainer,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "记录你的拿手好菜",
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.onSecondaryContainer.withValues(alpha: 0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 周菜单卡片
+  Widget _buildWeekMenuCard() {
+    return BentoCard(
+      onTap: () {
+        // 导航到周菜单
+      },
+      backgroundColor: AppColors.accentLight.withValues(alpha: 0.15),
+      decorIcon: Icons.calendar_month_rounded,
+      decorIconColor: AppColors.accent.withValues(alpha: 0.1),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.accent.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.calendar_month_rounded,
+              color: AppColors.accent,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  "周菜单",
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.onBackgroundLight,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "规划一周美食",
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.onSurfaceVariantLight,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 今日菜单卡片
+  Widget _buildTodayMenuCard() {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return BentoCard(
+      onTap: () {},
+      backgroundColor: colorScheme.surface,
+      decorIcon: Icons.restaurant_menu_rounded,
+      decorIconColor: AppColors.primary.withValues(alpha: 0.06),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 标题行
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    "今日菜单",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.onSurface,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                ],
+              ),
               TextButton(
                 onPressed: () {},
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
                 child: Row(
                   children: [
                     Text(
                       '查看全部',
                       style: TextStyle(
+                        fontSize: 13,
                         color: AppColors.primary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(width: 4),
-                    Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      size: 14,
-                      color: AppColors.primary,
-                    ),
+                    Icon(Icons.arrow_forward_ios_rounded, size: 12, color: AppColors.primary),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          if (_todayRecipes.isEmpty)
-            _buildEmptyMenuCard()
-          else
-            SizedBox(
-              height: 220,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                clipBehavior: Clip.none,
-                itemCount: _todayRecipes.length,
-                itemBuilder: (context, index) {
-                  final recipe = _todayRecipes[index];
-                  return Container(
-                    width: 180,
-                    margin: EdgeInsets.only(
-                      right: index < _todayRecipes.length - 1 ? 16 : 0,
-                    ),
-                    child: _buildRecipeCard(recipe),
-                  );
-                },
-              ),
-            ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
+          // 菜谱列表
+          Expanded(
+            child: _todayRecipes.isEmpty
+                ? _buildEmptyMenuContent()
+                : ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    clipBehavior: Clip.none,
+                    itemCount: _todayRecipes.length,
+                    itemBuilder: (context, index) {
+                      final recipe = _todayRecipes[index];
+                      return Container(
+                        width: 140,
+                        margin: EdgeInsets.only(
+                          right: index < _todayRecipes.length - 1 ? 12 : 0,
+                        ),
+                        child: _buildMiniRecipeCard(recipe),
+                      );
+                    },
+                  ),
+          ),
         ],
       ),
     );
   }
 
-  /// 构建空菜单卡片
-  Widget _buildEmptyMenuCard() {
-    return Container(
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppColors.outlineLight.withValues(alpha: 0.5),
-          width: 1,
-        ),
-      ),
+  /// 空菜单内容
+  Widget _buildEmptyMenuContent() {
+    return Center(
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: AppColors.primaryContainer,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.restaurant_menu_rounded,
-              size: 40,
-              color: AppColors.primary,
-            ),
+          Icon(
+            Icons.restaurant_menu_rounded,
+            size: 40,
+            color: AppColors.onSurfaceVariantLight.withValues(alpha: 0.4),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           Text(
             "今日暂无菜单",
             style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).colorScheme.onSurface,
+              fontSize: 14,
+              color: AppColors.onSurfaceVariantLight,
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            "点击下方按钮随机推荐或手动添加",
-            style: TextStyle(
-              fontSize: 13,
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+          OutlinedButton.icon(
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => const RandomMealDialog(),
+              );
+            },
+            icon: const Icon(Icons.shuffle_rounded, size: 16),
+            label: const Text('随机推荐'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('添加菜谱'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                ),
-              ),
-              const SizedBox(width: 12),
-              ElevatedButton.icon(
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => const RandomMealDialog(),
-                  );
-                },
-                icon: const Icon(Icons.shuffle_rounded, size: 18),
-                label: const Text('随机推荐'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                ),
-              ),
-            ],
           ),
         ],
       ),
     );
   }
 
-  /// 构建菜谱卡片
-  Widget _buildRecipeCard(Recipe recipe) {
+  /// 迷你菜谱卡片
+  Widget _buildMiniRecipeCard(Recipe recipe) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -534,174 +625,91 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       },
       child: Container(
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: AppShadows.small,
+          color: AppColors.surfaceContainerLight,
+          borderRadius: BorderRadius.circular(BentoStyle.smallRadius),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 图片
-            Container(
-              height: 120,
-              decoration: BoxDecoration(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                gradient: AppColors.warmGradient,
-              ),
-              child: Stack(
-                children: [
-                  Center(
-                    child: Icon(
-                      Icons.restaurant_rounded,
-                      size: 48,
-                      color: Colors.white.withValues(alpha: 0.8),
-                    ),
-                  ),
-                  // 收藏按钮
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        recipe.favorite ? Icons.favorite : Icons.favorite_border,
-                        size: 18,
-                        color: recipe.favorite ? Colors.red : Colors.grey,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // 信息
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    recipe.name,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.access_time_rounded,
-                        size: 14,
-                        color: AppColors.onSurfaceVariantLight,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        recipe.time,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.onSurfaceVariantLight,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.secondaryContainer,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          recipe.difficulty,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.secondary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 构建食材提醒
-  Widget _buildIngredientAlert() {
-    final urgentCount = _expiringIngredients.where((i) => i.urgent).length;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppColors.warning.withValues(alpha: 0.15),
-              AppColors.warning.withValues(alpha: 0.05),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: AppColors.warning.withValues(alpha: 0.3),
-            width: 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: AppColors.warning,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.notifications_active_rounded,
-                color: Colors.white,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 16),
+            // 图片区域
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "${_expiringIngredients.length} 种食材即将过期",
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
+              flex: 3,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: AppColors.warmGradient,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(BentoStyle.smallRadius),
                   ),
-                  if (urgentCount > 0) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      "其中 $urgentCount 种今天到期，建议优先使用",
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.onSurfaceVariantLight,
+                ),
+                child: Stack(
+                  children: [
+                    Center(
+                      child: Icon(
+                        Icons.restaurant_rounded,
+                        size: 32,
+                        color: Colors.white.withValues(alpha: 0.8),
+                      ),
+                    ),
+                    // 收藏图标
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          recipe.favorite ? Icons.favorite : Icons.favorite_border,
+                          size: 14,
+                          color: recipe.favorite ? Colors.red : Colors.grey,
+                        ),
                       ),
                     ),
                   ],
-                ],
+                ),
               ),
             ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.warning,
+            // 信息区域
+            Expanded(
+              flex: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      recipe.name,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.access_time_rounded,
+                          size: 11,
+                          color: AppColors.onSurfaceVariantLight,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          recipe.time,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: AppColors.onSurfaceVariantLight,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
@@ -709,131 +717,137 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  /// 构建即将过期列表
-  Widget _buildExpiringSoon() {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  /// 食材提醒卡片
+  Widget _buildIngredientAlertCard() {
+    final urgentCount = _expiringIngredients.where((i) => i.urgent).length;
+
+    return BentoCard(
+      onTap: () {},
+      backgroundColor: AppColors.warningLight,
+      decorIcon: Icons.notifications_active_rounded,
+      decorIconColor: AppColors.warning.withValues(alpha: 0.12),
+      child: Row(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                "即将过期",
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: -0.5,
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: AppColors.warning,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(
+              Icons.notifications_active_rounded,
+              color: Colors.white,
+              size: 26,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  "${_expiringIngredients.length} 种食材即将过期",
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
+                if (urgentCount > 0) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    "其中 $urgentCount 种今天到期，建议优先使用",
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.onBackgroundLight.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Icon(
+            Icons.chevron_right_rounded,
+            color: AppColors.warning,
+            size: 28,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 单个食材卡片
+  Widget _buildIngredientCard(IngredientItem ingredient) {
+    final isUrgent = ingredient.urgent;
+
+    return BentoCard(
+      onTap: () {},
+      backgroundColor: isUrgent ? AppColors.errorLight : Colors.white,
+      decorIcon: Icons.kitchen_rounded,
+      decorIconColor: isUrgent
+          ? AppColors.error.withValues(alpha: 0.08)
+          : AppColors.onSurfaceVariantLight.withValues(alpha: 0.06),
+      child: Row(
+        children: [
+          // 食材图标
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: isUrgent
+                  ? AppColors.error.withValues(alpha: 0.12)
+                  : AppColors.warningLight,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Text(
+                ingredient.icon,
+                style: const TextStyle(fontSize: 22),
               ),
-              TextButton(
-                onPressed: () {},
-                child: Text(
-                  '查看全部',
-                  style: TextStyle(
-                    color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // 信息
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  ingredient.name,
+                  style: const TextStyle(
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: AppShadows.small,
+                const SizedBox(height: 2),
+                Text(
+                  ingredient.amount,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.onSurfaceVariantLight,
+                  ),
+                ),
+              ],
             ),
-            child: Column(
-              children: _expiringIngredients.asMap().entries.map((entry) {
-                final index = entry.key;
-                final ingredient = entry.value;
-                final isLast = index == _expiringIngredients.length - 1;
-
-                return Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          // 图标
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: ingredient.urgent
-                                  ? AppColors.errorLight
-                                  : AppColors.warningLight,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Center(
-                              child: Text(
-                                ingredient.icon,
-                                style: const TextStyle(fontSize: 24),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          // 信息
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  ingredient.name,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  ingredient.amount,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: AppColors.onSurfaceVariantLight,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          // 过期标签
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: ingredient.urgent
-                                  ? AppColors.error.withValues(alpha: 0.1)
-                                  : AppColors.warning.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              ingredient.expiryText,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: ingredient.urgent
-                                    ? AppColors.error
-                                    : AppColors.warning,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (!isLast)
-                      Divider(
-                        height: 1,
-                        indent: 80,
-                        color: AppColors.outlineLight.withValues(alpha: 0.5),
-                      ),
-                  ],
-                );
-              }).toList(),
+          ),
+          // 过期标签
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: isUrgent
+                  ? AppColors.error.withValues(alpha: 0.15)
+                  : AppColors.warning.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              ingredient.expiryText,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: isUrgent ? AppColors.error : AppColors.warning,
+              ),
             ),
           ),
         ],

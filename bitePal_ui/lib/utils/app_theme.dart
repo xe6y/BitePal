@@ -1,5 +1,59 @@
 import 'package:flutter/material.dart';
 
+/// ============================================
+/// Bento Grid 设计系统
+/// ============================================
+
+/// Bento 风格设计常量
+class BentoStyle {
+  BentoStyle._();
+
+  /// 统一圆角 - 28px
+  static const double cardRadius = 28.0;
+
+  /// 小圆角 - 用于内部元素
+  static const double smallRadius = 16.0;
+
+  /// 内边距
+  static const double cardPadding = 20.0;
+
+  /// 网格间距
+  static const double gridSpacing = 16.0;
+
+  /// 背景色 - 极浅米白色
+  static const Color backgroundColor = Color(0xFFF8F9FA);
+
+  /// Bento 卡片柔和阴影
+  static List<BoxShadow> get cardShadow => [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.04),
+          blurRadius: 20,
+          offset: const Offset(0, 10),
+        ),
+      ];
+
+  /// Bento 卡片悬浮阴影（点击态）
+  static List<BoxShadow> get cardShadowHover => [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.08),
+          blurRadius: 30,
+          offset: const Offset(0, 15),
+        ),
+      ];
+
+  /// 装饰图标透明度
+  static const double decorIconOpacity = 0.08;
+
+  /// 装饰图标大小
+  static const double decorIconSize = 80.0;
+
+  /// 动画时长 - 点击缩放
+  static const Duration tapAnimDuration = Duration(milliseconds: 150);
+
+  /// 点击缩放比例
+  static const double tapScale = 0.97;
+}
+
 /// 应用设计系统 - 配色方案
 class AppColors {
   // 主色调 - 温暖橙色渐变
@@ -31,7 +85,7 @@ class AppColors {
   static const Color info = Color(0xFF2979FF);
   static const Color infoLight = Color(0xFFE3F2FD);
 
-  // 浅色模式中性色
+  // 浅色模式中性色 - Bento 风格背景
   static const Color backgroundLight = Color(0xFFF8F9FA);
   static const Color surfaceLight = Colors.white;
   static const Color surfaceContainerLight = Color(0xFFF1F3F4);
